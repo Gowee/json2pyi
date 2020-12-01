@@ -1,7 +1,7 @@
 /// Infer a schema from a given JSON HashMap
 use serde_json::Value as JSONValue;
 
-use crate::mapset_impl::{Map, Set};
+use crate::mapset_impl::Map;
 use crate::schema::Schema;
 
 // const ROOT_NAME: &'static str = "SomeJSON";
