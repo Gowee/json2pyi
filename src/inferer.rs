@@ -1,4 +1,4 @@
-/// Infer a schema from a given JSON HashMap
+/// Infer a schema from a given JSONValue
 use serde_json::Value as JSONValue;
 
 use crate::mapset_impl::Map;
@@ -19,11 +19,7 @@ pub fn infer(json: &JSONValue) -> Schema {
         }
         JSONValue::String(_) => Schema::String,
         JSONValue::Array(ref array) => {
-            let inner = match array.len() {
-                0 => Schema::Any,
-                1 => infer(array.first().unwrap()),
-                _ => union(array.into_iter().map(|value| infer(value))),
-            };
+            let inner = union(array.into_iter().map(|value| infer(value)));
             Schema::Array(Box::new(inner))
         }
         JSONValue::Object(ref map) => Schema::Map(
@@ -260,8 +256,8 @@ mod tests {
     }
 
     #[test]
-    fn test_union_with_any() {
-        let data = include_str!("../tests/data/union-with-any.json");
+    fn test_union_of_map_with_any() {
+        let data = include_str!("../tests/data/union-of-map-with-any.json");
         let v: Value = serde_json::from_str(data).unwrap();
         let v = infer(&v);
 
@@ -277,6 +273,7 @@ mod tests {
             )))
         );
     }
+
     #[test]
     fn test_union_of_array() {
         let data = include_str!("../tests/data/union-of-array.json");
@@ -290,6 +287,25 @@ mod tests {
                 Schema::String,
                 Schema::Bool
             ])))))
+        );
+    }
+
+    #[test]
+    fn test_union_of_map_and_others() {
+        let data = include_str!("../tests/data/union-of-map-and-others.json");
+        let v: Value = serde_json::from_str(data).unwrap();
+        let v = infer(&v);
+
+        assert_eq!(
+            v,
+            Schema::Array(Box::new(Schema::Union(vec![
+                Schema::Map(
+                    vec![(String::from("field1"), Schema::Float)]
+                        .into_iter()
+                        .collect()
+                ),
+                Schema::Null
+            ])))
         );
     }
 
@@ -308,6 +324,7 @@ mod tests {
             ])))))
         );
     }
+
     #[test]
     fn test_quicktype() {
         let data = include_str!("../tests/data/quicktype.json");
