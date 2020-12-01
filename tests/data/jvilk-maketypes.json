@@ -1,0 +1,41 @@
+{
+  "coord": {
+    "lon": 14.42,
+    "lat": 50.09
+  },
+  "weather": [
+    {
+      "id": 802,
+      "main": "Clouds",
+      "description": "scattered clouds",
+      "icon": "03d"
+    }
+  ],
+  "base": "cmc stations",
+  "main": {
+    "temp": 5,
+    "pressure": 1010,
+    "humidity": 100,
+    "temp_min": 5,
+    "temp_max": 5
+  },
+  "wind": {
+    "speed": 1.5,
+    "deg": 150
+  },
+  "clouds": {
+    "all": 32
+  },
+  "dt": 1460700000,
+  "sys": {
+    "type": 1,
+    "id": 5889,
+    "message": 0.0033,
+    "country": "CZ",
+    "sunrise": 1460693287,
+    "sunset": 1460743037
+  },
+  "id": 3067696,
+  "name": "Prague",
+  "cod": 200
+}
