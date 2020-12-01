@@ -4,8 +4,6 @@ use serde_json::Value as JSONValue;
 use crate::mapset_impl::Map;
 use crate::schema::Schema;
 
-// const ROOT_NAME: &'static str = "SomeJSON";
-
 pub fn infer(json: &JSONValue) -> Schema {
     match *json {
         JSONValue::Null => Schema::Null,
@@ -38,7 +36,7 @@ fn union(schemas: impl IntoIterator<Item = Schema>) -> Schema {
 
     for schema in schemas.into_iter().flat_map(|schema| match schema {
         Schema::Union(schemas) => schemas, // expand union
-        _ => vec![schema],
+        _ => vec![schema], // TODO: avoid unnecessary Vec
     }) {
         match schema {
             Schema::Map(map) => {
@@ -95,12 +93,6 @@ fn union(schemas: impl IntoIterator<Item = Schema>) -> Schema {
         } else {
             union(
                 arrays
-                    .into_iter()
-                    .flat_map(|array| match array {
-                        Schema::Union(union) => union,
-                        schema => vec![schema],
-                    })
-                    .collect::<Vec<Schema>>(),
             )
         };
         schemas.push(Schema::Array(Box::new(inner)));
@@ -108,11 +100,12 @@ fn union(schemas: impl IntoIterator<Item = Schema>) -> Schema {
     // if let Some(map) = unioned_map {
     //     schemas.push(Schema::Map(map));
     // }
-    if primitive_types[0] {
-        schemas.push(Schema::Int);
-    }
     if primitive_types[1] {
         schemas.push(Schema::Float);
+    } else if primitive_types[0] {
+        // In JS(ON), int and float are both number, which implies 1.0 is serialized as 1.
+        // So if both int and float present in the union, just treat it as float. 
+        schemas.push(Schema::Int);
     }
     if primitive_types[2] {
         schemas.push(Schema::Bool);
@@ -313,10 +306,10 @@ mod tests {
     fn test_union_of_array_with_any() {
         let data = include_str!("../tests/data/union-of-array-with-any.json");
         let v: Value = serde_json::from_str(data).unwrap();
-        let v = infer(&v);
+        let s = infer(&v);
 
         assert_eq!(
-            v,
+            s,
             Schema::Array(Box::new(Schema::Array(Box::new(Schema::Union(vec![
                 Schema::Int,
                 Schema::String,
