@@ -29,42 +29,31 @@ pub fn infer(json: &JSONValue) -> Schema {
 }
 
 fn union(schemas: impl IntoIterator<Item = Schema>) -> Schema {
-    // Int, Float, Bool, String, Null, Any
+    // Primitive types are counted at most once: Int, Float, Bool, String, Null, Any
     let mut primitive_types = [false, false, false, false, false, false];
+    // All Maps are collected at first and then merged into one unioned Map, field by field.
     let mut maps: Option<Map<String, Vec<Schema>>> = None;
+    let mut map_count = 0; // Used to determine whether a field is present in all Maps.
+                           // All Arrays are collected at first. Then their inner types are unioned recursively.
+                           // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
     let mut arrays = vec![];
 
     for schema in schemas.into_iter().flat_map(|schema| match schema {
         Schema::Union(schemas) => schemas, // expand union
-        _ => vec![schema], // TODO: avoid unnecessary Vec
+        _ => vec![schema],                 // TODO: avoid unnecessary Vec
     }) {
         match schema {
             Schema::Map(map) => {
-                // maps.push(map);
                 let maps = maps.get_or_insert_with(|| Map::new());
                 for (key, schema) in map.into_iter() {
                     maps.entry(key).or_default().push(schema);
                 }
-                // unioned_map = match unioned_map {
-                //     Some(mut unioned_map) => {
-                //         for (key, schema) in map.into_iter() {
-                //             if unioned_map.contains_key(&key) {
-                //                 let schemas = unioned_map.remove(&key).unwrap();
-                //                 unioned_map
-                //                     .insert(key, Schema::Union(union(vec![schemas, schema])));
-                //             } else {
-                //                 unioned_map.insert(key, schema);
-                //             }
-                //         }
-                //         Some(unioned_map)
-                //     }
-                //     None => Some(map),
-                // }
+                map_count += 1;
             }
             Schema::Array(array) => {
                 arrays.push(*array);
             }
-            Schema::Union(_) => unreachable!(),
+            Schema::Union(_) => unreachable!(), // union should have been expanded above
             Schema::Int => primitive_types[0] = true,
             Schema::Float => primitive_types[1] = true,
             Schema::Bool => primitive_types[2] = true,
@@ -77,34 +66,33 @@ fn union(schemas: impl IntoIterator<Item = Schema>) -> Schema {
     let mut schemas = vec![];
 
     if let Some(maps) = maps {
+        // merge maps recursively by unioning every possible fields
         let unioned_map: Map<String, Schema> = maps
             .into_iter()
-            .map(|(key, schemas)| (key, union(schemas)))
+            .map(|(key, mut schemas)| {
+                // The field is nullable if not present in every Map.
+                if schemas.len() < map_count {
+                    schemas.push(Schema::Null); // Null
+                }
+                (key, union(schemas))
+            })
             .collect();
-        schemas.push(if unioned_map.is_empty() {
-            Schema::Any
+        if unioned_map.is_empty() {
+            // every map is empty (no field at all)
+            // TODO: Any or unit type?
+            primitive_types[5] = true; // Any
         } else {
-            Schema::Map(unioned_map)
-        })
+            schemas.push(Schema::Map(unioned_map));
+        }
     }
     if !arrays.is_empty() {
-        let inner = if arrays.len() == 1 {
-            arrays.pop().unwrap()
-        } else {
-            union(
-                arrays
-            )
-        };
-        schemas.push(Schema::Array(Box::new(inner)));
+        schemas.push(Schema::Array(Box::new(union(arrays))));
     }
-    // if let Some(map) = unioned_map {
-    //     schemas.push(Schema::Map(map));
-    // }
     if primitive_types[1] {
         schemas.push(Schema::Float);
     } else if primitive_types[0] {
         // In JS(ON), int and float are both number, which implies 1.0 is serialized as 1.
-        // So if both int and float present in the union, just treat it as float. 
+        // So if both int and float present in the union, just treat it as float.
         schemas.push(Schema::Int);
     }
     if primitive_types[2] {
@@ -117,6 +105,7 @@ fn union(schemas: impl IntoIterator<Item = Schema>) -> Schema {
         schemas.push(Schema::Null);
     }
     if schemas.is_empty() && primitive_types[5] {
+        // Any implies undetermined (e.g. [] or {}). So set it only if there are no concrete type.
         schemas.push(Schema::Any);
     }
     match schemas.len() {
@@ -315,6 +304,28 @@ mod tests {
                 Schema::String,
                 Schema::Bool
             ])))))
+        );
+    }
+
+    #[test]
+    fn test_union_of_map_with_optional_field() {
+        let data = include_str!("../tests/data/union-of-map-with-optional-field.json");
+        let v: Value = serde_json::from_str(data).unwrap();
+        let s = infer(&v);
+
+        assert_eq!(
+            s,
+            Schema::Array(Box::new(Schema::Map(
+                vec![
+                    (String::from("name"), Schema::String),
+                    (
+                        String::from("address"),
+                        Schema::Union(vec![Schema::String, Schema::Null])
+                    )
+                ]
+                .into_iter()
+                .collect()
+            )))
         );
     }
 
