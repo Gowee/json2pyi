@@ -1,5 +1,5 @@
-# JSON to PYI
-json2pyi is helps infer Python type definitions (dataclass or TypedDict) from a sample JSON file.
+# JSON to PYI (WIP)
+json2pyi infers and generates Python type definitions (dataclass or TypedDict) from a sample JSON file.
 
 ## Example
 **Input:**
