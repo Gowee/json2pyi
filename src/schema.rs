@@ -5,8 +5,8 @@ pub enum Schema {
     Map(Map<String, Schema>),
     Array(Box<Schema>),
     Union(Vec<Schema>),
-    Int,   // TODO: range
-    Float, // TODO: range
+    Int,
+    Float,
     Bool,
     String,
     Null,
@@ -164,6 +164,14 @@ impl PartialEq for Schema {
 }
 
 impl Eq for Schema {}
+
+// pub trait ExpandUnion: IntoIterator<Item = Schema> {
+//     fn expand_union(self) -> impl Iterator<Item = Schema>;
+// } 
+
+// impl<T: IntoIterator<Item = Schema>> T {
+//     pub fn expand_union() {}
+// }
 
 // impl From<Vec<Schema>> for Schema {
 //     fn from(vec: Vec<Schema>) -> Schema {
