@@ -1,4 +1,4 @@
-# JSON to PYI (WIP)
+# (WIP) JSON to PYI
 json2pyi infers and generates Python type definitions (dataclass or TypedDict) from a sample JSON file.
 
 ## Example
@@ -86,6 +86,7 @@ class RootObject:
 - [ ] Merge data types with similar structure and common name prefix/suffix
 - [ ] Detect recursive type definition (e.g. tree) 
 - [ ] Include imports of non-primitive types
+- [ ] Generate type alias for complex Union
 - [ ] Generate TypedDict
 - [ ] Refactor to unify TypedDict and dataclass generation
 - [ ] Compile to WASM and provide a Web-based app
