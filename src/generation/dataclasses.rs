@@ -96,7 +96,7 @@ class {}:
 
 #[cfg(test)]
 mod tests {
-    use crate::inferer::infer;
+    use crate::inferrer::infer;
 
     #[test]
     fn test_to_dataclasses() {
