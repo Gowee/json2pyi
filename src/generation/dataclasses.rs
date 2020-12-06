@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_to_dataclasses() {
-        let data = include_str!("../../tests/data/jvilk-maketypes.json");
+        let data = include_str!("../../tests/data/githubstatus.json");
         let s = infer(&serde_json::from_str(data).unwrap());
         println!("Redered: {}", s.to_dataclasses("RootObject"));
     }

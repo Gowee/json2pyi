@@ -12,3 +12,4 @@ indexmap = "1.6"
 serde = "1.0"
 serde_json = {version = "1.0", features = ["preserve_order"]}
 itertools = "0.9"
+# typed-arena = "2.0"
