@@ -32,6 +32,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
+name = "disjoint-sets"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ccbbca7d6a247007ca2535c616d4bb4a5fcad176ef0218671f96b88c52c3d34"
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -82,6 +88,7 @@ name = "json2pyi"
 version = "0.1.0"
 dependencies = [
  "Inflector",
+ "disjoint-sets",
  "generational-arena",
  "indexmap",
  "itertools",

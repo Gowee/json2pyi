@@ -3,22 +3,22 @@ use inflector::Inflector;
 /// Infer a schema from a given JSONValue
 use serde_json::Value as JSONValue;
 
-use std::cell::RefCell;
 use std::collections::HashSet;
 
 // use crate::mapset_impl::Map;
 use crate::schema::{ArenaIndex, Map, Schema, Type, TypeArena, Union};
+use super::union;
 
 /// infer Schema from `JSONValue`
-struct SchemaClosure {/* ... */}
+struct SchemaInferer {/* ... */}
 
 /// An closure for the inferrer to work
-struct InferrerClosure {
+pub struct BasicInferrerClosure {
     arena: TypeArena,
     primitive_types: [ArenaIndex; 6],
 }
 
-impl InferrerClosure {
+impl BasicInferrerClosure {
     pub fn new() -> Self {
         let mut arena = TypeArena::new();
         let primitive_types = [
@@ -29,7 +29,7 @@ impl InferrerClosure {
             arena.insert(Type::Null),
             arena.insert(Type::Any),
         ];
-        InferrerClosure {
+        BasicInferrerClosure {
             arena,
             primitive_types,
         }
@@ -39,10 +39,11 @@ impl InferrerClosure {
         let root = self.rinfer(json, None);
 
         let arena = self.arena;
-        let _ = self.primitive_types;
+        let primitive_types = self.primitive_types;
         Schema {
-            arena: arena,
-            root: root,
+            arena,
+            primitive_types,
+            root,
         }
     }
 
@@ -71,7 +72,7 @@ impl InferrerClosure {
                     };
                     types.push(self.rinfer(value, Some(type_name)))
                 }
-                let inner = self.union(types);
+                let inner = union(&mut self.arena, &mut self.primitive_types, types);
                 self.arena.insert(Type::Array(inner))
             }
             JSONValue::Object(ref map) => {
@@ -87,138 +88,7 @@ impl InferrerClosure {
         }
     }
 
-    fn union(&mut self, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
-        let mut unioned = HashSet::new();
-        // All Maps are collected at first and then merged into one unioned Map, field by field.
-        let mut maps: Option<IndexMap<String, Vec<ArenaIndex>>> = None;
-        let mut map_count = 0; // Used to determine whether a field is present in all Maps.
-                               // All Arrays are collected at first. Then their inner types are unioned recursively.
-                               // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
-        let mut arrays = vec![];
 
-        let types: Vec<ArenaIndex> = types.into_iter().flat_map(|r#type| {
-            match self
-                .arena
-                .get(r#type)
-                .expect("It should be there during recusive inferring/unioning")
-            {
-                Type::Union(_) => {
-                    self.arena
-                        .remove(r#type)
-                        .unwrap()
-                        .into_union()
-                        .unwrap()
-                        .types.into_iter().collect::<Vec<ArenaIndex>>() // remove & expand the union
-                }
-                _ => {
-                    vec![r#type]
-                } // TODO: avoid unnecessary Vec
-            }
-        }).collect();
-        for r#type in types {
-            match * self.arena.get(r#type).unwrap() {
-                Type::Map(_) => {
-                    let map = self
-                        .arena
-                        .remove(r#type)
-                        .unwrap()
-                        .into_map()
-                        .unwrap();
-                    let maps = maps.get_or_insert_with(|| Default::default());
-                    for (key, schema) in map.fields.into_iter() {
-                        maps.entry(key).or_default().push(schema);
-                    }
-                    map_count += 1;
-                }
-                Type::Array(array) => {
-                    arrays.push(array);
-                }
-                Type::Union(_) => unreachable!(), // union should have been expanded above
-                Type::Int => {
-                    unioned.insert(self.primitive_types[0]);
-                }
-                Type::Float => {
-                    unioned.insert(self.primitive_types[1]);
-                }
-                Type::Bool => {
-                    unioned.insert(self.primitive_types[2]);
-                }
-                Type::String => {
-                    unioned.insert(self.primitive_types[3]);
-                }
-                Type::Null => {
-                    unioned.insert(self.primitive_types[4]);
-                }
-                Type::Any => {
-                    unioned.insert(self.primitive_types[5]);
-                }
-            }
-        }
-
-        // let mut schemas = vec![];
-
-        if let Some(maps) = maps {
-            // merge maps recursively by unioning every possible fields
-            let unioned_map: IndexMap<String, ArenaIndex> = maps
-                .into_iter()
-                .map(|(key, mut types)| {
-                    // The field is nullable if not present in every Map.
-                    if types.len() < map_count {
-                        types.push(self.primitive_types[4]); // Null
-                    }
-                    (key, self.union(types))
-                })
-                .collect();
-            if unioned_map.is_empty() {
-                // every map is empty (no field at all)
-                // TODO: Any or unit type?
-                unioned.insert(self.primitive_types[5]); // Any
-            } else {
-                unioned.insert(self.arena.insert(Type::Map(Map {
-                    name: String::from("aa"),
-                    fields: unioned_map,
-                })));
-            }
-        }
-        if !arrays.is_empty() {
-            let inner = self.union(arrays);
-            unioned.insert(self.arena.insert(Type::Array(inner)));
-        }
-        if unioned.contains(&self.primitive_types[0]) && unioned.contains(&self.primitive_types[1])
-        {
-            // In JS(ON), int and float are both number, which implies 1.0 is serialized as 1.
-            // So if both int and float present in the union, just treat it as float.
-            unioned.remove(&self.primitive_types[0]);
-        }
-        // if primitive_types[1] {
-        //     schemas.push(Type::Float);
-        // } else if primitive_types[0] {
-        //     // In JS(ON), int and float are both number, which implies 1.0 is serialized as 1.
-        //     // So if both int and float present in the union, just treat it as float.
-        //     schemas.push(Type::Int);
-        // }
-        // if primitive_types[2] {
-        //     schemas.push(Type::Bool);
-        // }
-        // if primitive_types[3] {
-        //     schemas.push(Type::String);
-        // }
-        // if primitive_types[4] {
-        //     schemas.push(Type::Null);
-        // }
-        // if schemas.is_empty() && primitive_types[5] {
-        //     // Any implies undetermined (e.g. [] or {}). So set it only if there are no concrete type.
-        //     schemas.push(Type::Any);
-        // }
-        match unioned.len() {
-            0 => self.primitive_types[5], // Any
-            1 => unioned.drain().nth(0).unwrap(),
-            _ => self.arena.insert(Type::Union(Union {
-                name: String::from("UnnamedUnion"),
-                types: unioned,
-            })),
-        }
-    }
 }
 
 // pub fn infer(json: &JSONValue) -> Type {
@@ -247,11 +117,9 @@ impl InferrerClosure {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
-
-    use crate::schema::Type;
-
-    use super::*;
+    // use super::*;
+    // use crate::schema::Type;
+    // use serde_json::Value;
 
     //     #[test]
     //     fn test_primitives() {
