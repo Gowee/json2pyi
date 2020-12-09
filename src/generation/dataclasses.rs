@@ -2,24 +2,24 @@ use inflector::Inflector;
 use itertools::Itertools;
 
 use crate::mapset_impl::Map;
-use crate::schema::Schema;
+use crate::schema::Type;
 
 const ROOT_NAME: &'static str = "UnnamedObject";
 
-impl Schema {
+impl Type {
     pub fn to_dataclasses(&self, root_name: &str) -> String {
         // let named_schemas: Vec<(&str, Map<String, Schema>)>  = vec![];
         // let mut stack: Vec<&Schema> = vec![self];
         let mut output = vec![];
 
         fn traverse(
-            schema: &Schema,
+            schema: &Type,
             outer_name: Option<String>,
             output: &mut Vec<String>,
         ) -> String {
             dbg!(schema, &outer_name);
             match &schema {
-                Schema::Map(ref map) => {
+                Type::Map(ref map) => {
                     let class_name = String::from(outer_name.unwrap_or(String::from(ROOT_NAME))); // TODO: convert case and suffix
                     dbg!(&class_name);
                     let fields: Vec<String> = map
@@ -47,10 +47,10 @@ class {}:
                     ));
                     String::from(class_name)
                 }
-                Schema::Array(ref array) => {
+                Type::Array(ref array) => {
                     format!("List[{}]", traverse(array, outer_name, output))
                 }
-                Schema::Union(ref union) => {
+                Type::Union(ref union) => {
                     let mut optional = false;
                     let t = union
                         .iter()
@@ -74,13 +74,13 @@ class {}:
                         format!("Optional[{}]", t)
                     }
                 }
-                Schema::Int => String::from("int"),
-                Schema::Float => String::from("float"),
-                Schema::Bool => String::from("bool"),
-                Schema::String => String::from("str"),
+                Type::Int => String::from("int"),
+                Type::Float => String::from("float"),
+                Type::Bool => String::from("bool"),
+                Type::String => String::from("str"),
                 // TODO: treat `* | null` as `Optional[*]`
-                Schema::Null => String::from("None"), // unreachable!()
-                Schema::Any => String::from("Any"),
+                Type::Null => String::from("None"), // unreachable!()
+                Type::Any => String::from("Any"),
             }
         }
 
