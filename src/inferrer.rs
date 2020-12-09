@@ -14,7 +14,7 @@ struct SchemaClosure {/* ... */}
 
 /// An closure for the inferrer to work
 struct InferrerClosure {
-    arena: RefCell<TypeArena>,
+    arena: TypeArena,
     primitive_types: [ArenaIndex; 6],
 }
 
@@ -30,23 +30,23 @@ impl InferrerClosure {
             arena.insert(Type::Any),
         ];
         InferrerClosure {
-            arena: RefCell::new(arena),
+            arena,
             primitive_types,
         }
     }
 
-    pub fn infer(self, json: &JSONValue) -> Schema {
+    pub fn infer(mut self, json: &JSONValue) -> Schema {
         let root = self.rinfer(json, None);
 
         let arena = self.arena;
         let _ = self.primitive_types;
         Schema {
-            arena: arena.into_inner(),
+            arena: arena,
             root: root,
         }
     }
 
-    fn rinfer(&self, json: &JSONValue, outer_name: Option<String>) -> ArenaIndex {
+    fn rinfer(&mut self, json: &JSONValue, outer_name: Option<String>) -> ArenaIndex {
         match *json {
             JSONValue::Number(ref number) => {
                 if number.is_f64() {
@@ -72,14 +72,14 @@ impl InferrerClosure {
                     types.push(self.rinfer(value, Some(type_name)))
                 }
                 let inner = self.union(types);
-                self.arena.borrow_mut().insert(Type::Array(inner))
+                self.arena.insert(Type::Array(inner))
             }
             JSONValue::Object(ref map) => {
                 let mut fields = IndexMap::new();
                 for (key, value) in map.iter() {
                     fields.insert(key.to_owned(), self.rinfer(value, Some(key.to_owned())));
                 }
-                self.arena.borrow_mut().insert(Type::Map(Map {
+                self.arena.insert(Type::Map(Map {
                     name: outer_name.unwrap_or_else(|| String::from("UnnamedType")),
                     fields,
                 }))
@@ -87,7 +87,7 @@ impl InferrerClosure {
         }
     }
 
-    fn union(&self, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
+    fn union(&mut self, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
         let mut unioned = HashSet::new();
         // All Maps are collected at first and then merged into one unioned Map, field by field.
         let mut maps: Option<IndexMap<String, Vec<ArenaIndex>>> = None;
@@ -96,35 +96,30 @@ impl InferrerClosure {
                                // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
         let mut arrays = vec![];
 
-        let types = types.into_iter().flat_map(|r#type| {
+        let types: Vec<ArenaIndex> = types.into_iter().flat_map(|r#type| {
             match self
                 .arena
-                .borrow()
                 .get(r#type)
                 .expect("It should be there during recusive inferring/unioning")
             {
                 Type::Union(_) => {
                     self.arena
-                        .borrow_mut()
                         .remove(r#type)
                         .unwrap()
                         .into_union()
                         .unwrap()
-                        .types // remove & expand the union
+                        .types.into_iter().collect::<Vec<ArenaIndex>>() // remove & expand the union
                 }
                 _ => {
-                    let mut set = HashSet::with_capacity(1);
-                    set.insert(r#type);
-                    set
-                } // TODO: avoid unnecessary HashSet
+                    vec![r#type]
+                } // TODO: avoid unnecessary Vec
             }
-        });
+        }).collect();
         for r#type in types {
-            match self.arena.borrow().get(r#type).unwrap() {
+            match * self.arena.get(r#type).unwrap() {
                 Type::Map(_) => {
                     let map = self
                         .arena
-                        .borrow_mut()
                         .remove(r#type)
                         .unwrap()
                         .into_map()
@@ -135,8 +130,8 @@ impl InferrerClosure {
                     }
                     map_count += 1;
                 }
-                Type::Array(_) => {
-                    // arrays.push(*array);
+                Type::Array(array) => {
+                    arrays.push(array);
                 }
                 Type::Union(_) => unreachable!(), // union should have been expanded above
                 Type::Int => {
@@ -179,7 +174,7 @@ impl InferrerClosure {
                 // TODO: Any or unit type?
                 unioned.insert(self.primitive_types[5]); // Any
             } else {
-                unioned.insert(self.arena.borrow_mut().insert(Type::Map(Map {
+                unioned.insert(self.arena.insert(Type::Map(Map {
                     name: String::from("aa"),
                     fields: unioned_map,
                 })));
@@ -187,7 +182,7 @@ impl InferrerClosure {
         }
         if !arrays.is_empty() {
             let inner = self.union(arrays);
-            unioned.insert(self.arena.borrow_mut().insert(Type::Array(inner)));
+            unioned.insert(self.arena.insert(Type::Array(inner)));
         }
         if unioned.contains(&self.primitive_types[0]) && unioned.contains(&self.primitive_types[1])
         {
@@ -218,7 +213,7 @@ impl InferrerClosure {
         match unioned.len() {
             0 => self.primitive_types[5], // Any
             1 => unioned.drain().nth(0).unwrap(),
-            _ => self.arena.borrow_mut().insert(Type::Union(Union {
+            _ => self.arena.insert(Type::Union(Union {
                 name: String::from("UnnamedUnion"),
                 types: unioned,
             })),
@@ -468,11 +463,11 @@ mod tests {
     //         dbg!(infer(&v));
     //     }
 
-    #[test]
-    fn test_jvilk_maketypes() {
-        let data = include_str!("../tests/data/jvilk-maketypes.json");
-        let v: Value = serde_json::from_str(data).unwrap();
-        let schema = InferrerClosure::new().infer(&v);
-        dbg!(schema);
-    }
+    // #[test]
+    // fn test_jvilk_maketypes() {
+    //     let data = include_str!("../tests/data/jvilk-maketypes.json");
+    //     let v: Value = serde_json::from_str(data).unwrap();
+    //     let schema = InferrerClosure::new().infer(&v);
+    //     dbg!(schema);
+    // }
 }
