@@ -15,7 +15,7 @@ pub struct Schema {
 #[derive(Debug)]
 pub enum Type {
     Map(Map),
-    Array(Box<Type>),
+    Array(ArenaIndex),
     Union(Union),
     Int,
     Float,
@@ -34,10 +34,17 @@ pub struct Map {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Union {
     pub name: String,
-    pub fields: HashSet<ArenaIndex>
+    pub types: HashSet<ArenaIndex>
 }
 
 impl Type {
+    pub fn into_map(self) -> Option<Map> {
+        match self {
+            Self::Map(map) => Some(map),
+            _ => None,
+        }
+    }
+
     pub fn as_map(&self) -> Option<&Map> {
         match *self {
             Self::Map(ref map) => Some(map),
@@ -96,6 +103,13 @@ impl Type {
 
     pub fn is_array(&self) -> bool {
         self.as_array().is_some()
+    }
+
+    pub fn into_union(self) -> Option<Union> {
+        match self {
+            Self::Union(types) => Some(types),
+            _ => None,
+        }
     }
 
     pub fn as_union(&self) -> Option<&Union> {
