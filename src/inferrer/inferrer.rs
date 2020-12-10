@@ -15,23 +15,13 @@ struct SchemaInferer {/* ... */}
 /// An closure for the inferrer to work
 pub struct BasicInferrerClosure {
     arena: TypeArena,
-    primitive_types: [ArenaIndex; 6],
 }
 
 impl BasicInferrerClosure {
     pub fn new() -> Self {
         let mut arena = TypeArena::new();
-        let primitive_types = [
-            arena.insert(Type::Int),
-            arena.insert(Type::Float),
-            arena.insert(Type::Bool),
-            arena.insert(Type::String),
-            arena.insert(Type::Null),
-            arena.insert(Type::Any),
-        ];
         BasicInferrerClosure {
             arena,
-            primitive_types,
         }
     }
 

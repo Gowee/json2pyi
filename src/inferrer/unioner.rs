@@ -7,24 +7,24 @@ use std::collections::HashSet;
 use std::mem;
 
 // use crate::mapset_impl::Map;
-use crate::schema::{ArenaIndex, Map, Schema, Type, TypeArena, Union};
+use crate::schema::{ArenaIndex, Map, Schema, Type, ArenaOfType, Union, ITypeArena};
 
 pub fn union(
-    arena: &mut TypeArena,
+    arena: &mut ArenaOfType,
     primitive_types: &[ArenaIndex; 6],
     types: impl IntoIterator<Item = ArenaIndex>,
 ) -> ArenaIndex {
     Unioner::new(arena, primitive_types).union(types)
 }
 
-pub struct Unioner<'a> {
+pub struct Unioner<'a, T: ITypeArena> {
     // Unioner is pub, so it is not named UnionerClosure.
-    arena: &'a mut TypeArena,
+    arena: &'a mut T,
     primitive_types: &'a [ArenaIndex; 6],
 }
 
-impl<'a> Unioner<'a> {
-    pub fn new(arena: &'a mut TypeArena, primitive_types: &'a [ArenaIndex; 6]) -> Self {
+impl<'a, T> Unioner<'a, T> {
+    pub fn new(arena: &'a mut ArenaOfType, primitive_types: &'a [ArenaIndex; 6]) -> Self {
         Self {
             arena,
             primitive_types,
@@ -182,3 +182,5 @@ impl<'a> Unioner<'a> {
         }
     }
 }
+
+
