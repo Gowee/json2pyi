@@ -1,21 +1,15 @@
-use indexmap::IndexMap;
+mod arena;
+mod map;
+mod union;
 
-use std::collections::HashSet;
-use std::ops::{Deref, DerefMut};
-
-use generational_arena::Arena;
-pub use generational_arena::Index as ArenaIndex;
-pub type ArenaOfType = Arena<Type>;
+pub use self::map::Map;
+pub use self::union::Union;
+pub use self::arena::{TypeArena, ITypeArena, ArenaIndex, ArenaOfType};
 
 #[derive(Debug)]
 pub struct Schema {
     pub arena: TypeArena,
     pub root: ArenaIndex,
-}
-
-pub struct TypeArena {
-    arena: ArenaOfType,
-    primitive_types: [ArenaIndex; 6],
 }
 
 #[derive(Debug)]
@@ -31,18 +25,6 @@ pub enum Type {
     Any,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Map {
-    pub name: String,
-    pub fields: IndexMap<String, ArenaIndex>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Union {
-    pub name: String,
-    pub types: HashSet<ArenaIndex>,
-}
-
 impl Type {
     pub fn into_map(self) -> Option<Map> {
         match self {
@@ -54,6 +36,13 @@ impl Type {
     pub fn as_map(&self) -> Option<&Map> {
         match *self {
             Self::Map(ref map) => Some(map),
+            _ => None,
+        }
+    }
+
+    pub fn as_mut_map(&mut self) -> Option<&mut Map> {
+        match *self {
+            Self::Map(ref mut map) => Some(map),
             _ => None,
         }
     }
@@ -136,96 +125,6 @@ impl Default for Type {
     }
 }
 
-impl Map {
-    pub fn is_similar_to(&self, other: &Self) -> bool {
-        // TODO: take value type into consideration
-        let a: HashSet<_> = self.fields.iter().map(|(name, _)| name).collect();
-        let b: HashSet<_> = other.fields.iter().map(|(name, _)| name).collect();
-
-        let a_intsec_b = a.intersection(&b).count();
-        let a_diff_b = a.difference(&b).count();
-        let b_diff_a = b.difference(&a).count();
-        let tversky_index =
-            a_intsec_b as f64 / (a_intsec_b as f64 + 1.0 * a_diff_b as f64 + 1.0 * b_diff_a as f64);
-
-        // https://en.wikipedia.org/wiki/Tversky_index
-        tversky_index > 0.8
-    }
-}
-
-impl TypeArena {
-    fn new() -> Self {
-        let mut arena = ArenaOfType::new();
-        let primitive_types = [
-            arena.insert(Type::Int),
-            arena.insert(Type::Float),
-            arena.insert(Type::Bool),
-            arena.insert(Type::String),
-            arena.insert(Type::Null),
-            arena.insert(Type::Any),
-        ];
-        TypeArena {
-            arena,
-            primitive_types,
-        }
-    }
-}
-
-impl Deref for TypeArena {
-    type Target = ArenaOfType;
-
-    fn deref(&self) -> &Self::Target {
-        &self.arena
-    }
-}
-
-impl DerefMut for TypeArena {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.arena
-    }
-}
-
-pub trait ITypeArena {
-    fn get(&self, i: ArenaIndex) -> Option<&Type>;
-    fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut Type>;
-    fn remove(&mut self, i: ArenaIndex) -> Option<Type>;
-    fn get_primitive_types(&self) -> &[ArenaIndex; 6];
-
-    fn get_index_of_primitive(&self, r#type: Type) -> ArenaIndex {
-        let primitive_types = self.get_primitive_types();
-        match r#type {
-            Type::Int => primitive_types[0],
-            Type::Float => primitive_types[1],
-            Type::Bool => primitive_types[2],
-            Type::String => primitive_types[3],
-            Type::Null => primitive_types[4],
-            Type::Any => primitive_types[5],
-            _ => panic!("Not a primitive type: {:?}", r#type),
-        }
-    }
-}
-
-impl ITypeArena for TypeArena {
-    #[inline(always)]
-    fn get(&self, i: ArenaIndex) -> Option<&Type> {
-        Deref::deref(self).get(i)
-    }
-
-    #[inline(always)]
-    fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut Type> {
-        DerefMut::deref_mut(self).get_mut(i)
-    }
-
-    #[inline(always)]
-    fn remove(&mut self, i: ArenaIndex) -> Option<Type> {
-        DerefMut::deref_mut(self).remove(i)
-    }
-
-    #[inline(always)]
-    fn get_primitive_types(&self) -> &[ArenaIndex; 6] {
-        &self.primitive_types
-    }
-}
 
 // impl PartialEq for Type {
 //     fn eq(&self, other: &Self) -> bool {

@@ -6,8 +6,8 @@ use serde_json::Value as JSONValue;
 use std::collections::HashSet;
 
 // use crate::mapset_impl::Map;
-use crate::schema::{ArenaIndex, Map, Schema, Type, TypeArena, Union};
 use super::union;
+use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, TypeArena, Union};
 
 /// infer Schema from `JSONValue`
 struct SchemaInferer {/* ... */}
@@ -20,35 +20,28 @@ pub struct BasicInferrerClosure {
 impl BasicInferrerClosure {
     pub fn new() -> Self {
         let mut arena = TypeArena::new();
-        BasicInferrerClosure {
-            arena,
-        }
+        BasicInferrerClosure { arena }
     }
 
     pub fn infer(mut self, json: &JSONValue) -> Schema {
         let root = self.rinfer(json, None);
 
         let arena = self.arena;
-        let primitive_types = self.primitive_types;
-        Schema {
-            arena,
-            primitive_types,
-            root,
-        }
+        Schema { arena, root }
     }
 
     fn rinfer(&mut self, json: &JSONValue, outer_name: Option<String>) -> ArenaIndex {
         match *json {
             JSONValue::Number(ref number) => {
                 if number.is_f64() {
-                    self.primitive_types[1]
+                    self.arena.get_index_of_primitive(Type::Float)
                 } else {
-                    self.primitive_types[0]
+                    self.arena.get_index_of_primitive(Type::Int)
                 }
             }
-            JSONValue::Bool(_) => self.primitive_types[2],
-            JSONValue::String(_) => self.primitive_types[3],
-            JSONValue::Null => self.primitive_types[4],
+            JSONValue::Bool(_) => self.arena.get_index_of_primitive(Type::Bool),
+            JSONValue::String(_) => self.arena.get_index_of_primitive(Type::String),
+            JSONValue::Null => self.arena.get_index_of_primitive(Type::Null),
             JSONValue::Array(ref array) => {
                 let mut types = vec![];
                 let outer_name = outer_name.unwrap_or_else(|| String::from("UnnamedType"));
@@ -62,7 +55,7 @@ impl BasicInferrerClosure {
                     };
                     types.push(self.rinfer(value, Some(type_name)))
                 }
-                let inner = union(&mut self.arena, &mut self.primitive_types, types);
+                let inner = union(&mut self.arena, types);
                 self.arena.insert(Type::Array(inner))
             }
             JSONValue::Object(ref map) => {
@@ -77,8 +70,6 @@ impl BasicInferrerClosure {
             }
         }
     }
-
-
 }
 
 // pub fn infer(json: &JSONValue) -> Type {
