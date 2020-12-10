@@ -13,6 +13,7 @@ pub struct HeuristicInferrer {
 
 impl HeuristicInferrer {
     pub fn optimize(&self, schema: &mut Schema) {
+        dbg!(&schema);
         // let mut ufnodes: HashMap<ArenaIndex, UnionFind<ArenaIndex>> = Default::default();
         let arena_indices: Vec<ArenaIndex> = schema.arena.iter().map(|(index, _)| index).collect();
         let mut dsu = UnionFind::<usize>::new(arena_indices.len());
@@ -44,24 +45,31 @@ impl HeuristicInferrer {
         for (arni, r#type) in schema.arena.iter() {
             if r#type.is_map() {
                 let p = dsu.find(indices_arena[&arni]);
-                if p == indices_arena[&arni] {
+                // if p == indices_arena[&arni] {
                     disjoint_sets
                         .entry(arena_indices[p])
                         .or_default()
                         .insert(arni);
-                }
+                // }
                 // types_to_drop.insert(ari, mem::take(r#type));
             }
         }
+        dbg!("ds", &disjoint_sets);
 
         let mut to_replace = HashMap::<ArenaIndex, ArenaIndex>::new();
         {
-            let mut unioner = Unioner::new(&mut schema.arena, &schema.primitive_types);
             for (leader, mut set) in disjoint_sets.into_iter() {
                 set.insert(leader); // leader in disjoint set is now a follower
 
+                let compact_set = set
+                    .iter()
+                    .cloned()
+                    .filter(|&r#type| schema.arena.contains(r#type))
+                    .collect::<Vec<ArenaIndex>>();
+                let mut unioner = Unioner::new(&mut schema.arena, &schema.primitive_types);
                 // unioned is now the new leader
-                let leader = unioner.runion(set.iter().cloned());
+                dbg!("merging: ",&set,  &compact_set);
+                let leader = unioner.runion(compact_set);
                 for follower in set.into_iter() {
                     to_replace.insert(follower, leader);
                 }
@@ -79,12 +87,12 @@ impl HeuristicInferrer {
                         if to_replace.contains_key(r#type) {
                             *r#type = to_replace[r#type];
                         } else {
-                            assert!(schema
-                                .primitive_types
-                                .iter()
-                                .cloned()
-                                .collect::<HashSet<ArenaIndex>>()
-                                .contains(r#type));
+                            // assert!(schema
+                            //     .primitive_types
+                            //     .iter()
+                            //     .cloned()
+                            //     .collect::<HashSet<ArenaIndex>>()
+                            //     .contains(r#type));
                         }
                     }
                 }
