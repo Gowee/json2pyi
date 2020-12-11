@@ -7,12 +7,9 @@ use std::collections::HashSet;
 use std::mem;
 
 // use crate::mapset_impl::Map;
-use crate::schema::{ArenaIndex, Map, Schema, Type, TypeArena, Union, ITypeArena};
+use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, TypeArena, Union};
 
-pub fn union(
-    arena: &mut TypeArena,
-    types: impl IntoIterator<Item = ArenaIndex>,
-) -> ArenaIndex {
+pub fn union(arena: &mut TypeArena, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
     Unioner::new(arena).union(types)
 }
 
@@ -23,9 +20,7 @@ pub struct Unioner<'a, T: ITypeArena> {
 
 impl<'a, T: ITypeArena> Unioner<'a, T> {
     pub fn new(arena: &'a mut T) -> Self {
-        Self {
-            arena
-        }
+        Self { arena }
     }
 
     pub fn union(mut self, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
@@ -65,11 +60,11 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                 }
             })
             .collect();
-        dbg!(&types);
+        // dbg!(&types);
         for r#type in types {
             match *self.arena.get(r#type).unwrap() {
                 Type::Map(_) => {
-                    {dbg!(self.arena.get(r#type).unwrap());}
+                    // {// dbg!(self.arena.get(r#type).unwrap());}
                     let map;
                     if first_map.is_none() {
                         // If this is the first map in the union, just take its inner out so that
@@ -80,7 +75,12 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                             .unwrap();
                     } else {
                         // O.W., just remove the type from the arena.
-                        map = self.arena.remove(r#type).unwrap().into_map().unwrap();
+                        map = self
+                            .arena
+                            .remove_in_favor_of(r#type, first_map.unwrap())
+                            .unwrap()
+                            .into_map()
+                            .unwrap();
                     }
                     let maps = maps.get_or_insert_with(|| Default::default());
                     for (key, r#type) in map.fields.into_iter() {
@@ -117,13 +117,14 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
 
         if let Some(maps) = maps {
             // merge maps recursively by unioning every possible fields
-            dbg!(&maps);
+            // dbg!(&maps);
             let unioned_map: IndexMap<String, ArenaIndex> = maps
                 .into_iter()
                 .map(|(key, mut types)| {
                     // The field is nullable if not present in every Map.
                     if types.len() < map_count {
-                        types.push(self.arena.get_index_of_primitive(Type::Null)); // Null
+                        types.push(self.arena.get_index_of_primitive(Type::Null));
+                        // Null
                     }
                     (key, self.runion(types))
                 })
@@ -146,7 +147,8 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             let inner = self.runion(arrays);
             unioned.insert(self.arena.insert(Type::Array(inner)));
         }
-        if unioned.contains(&self.arena.get_index_of_primitive(Type::Int)) && unioned.contains(&self.arena.get_index_of_primitive(Type::Float))
+        if unioned.contains(&self.arena.get_index_of_primitive(Type::Int))
+            && unioned.contains(&self.arena.get_index_of_primitive(Type::Float))
         {
             // In JS(ON), int and float are both number, which implies 1.0 is serialized as 1.
             // So if both int and float present in the union, just treat it as float.
@@ -182,5 +184,3 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
         }
     }
 }
-
-

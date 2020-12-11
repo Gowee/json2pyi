@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 
 use std::collections::HashSet;
 
-use super::arena::{ArenaIndex};
+use super::arena::ArenaIndex;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Map {

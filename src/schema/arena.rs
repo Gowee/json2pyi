@@ -1,10 +1,14 @@
 use generational_arena::Arena;
 pub use generational_arena::Index as ArenaIndex;
 pub type ArenaOfType = Arena<Type>;
+use bidirectional_map::Bimap;
+use disjoint_sets::UnionFind;
+use itertools::Itertools;
 
+use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 
-use super::{Type};
+use super::Type;
 
 #[derive(Debug)]
 pub struct TypeArena {
@@ -28,6 +32,59 @@ impl TypeArena {
             primitive_types,
         }
     }
+
+    /// Get disjoint sets of similar types.
+    pub fn get_sets_of_similar_maps(&self) -> HashMap<ArenaIndex, HashSet<ArenaIndex>> {
+        let imap: Bimap<usize, ArenaIndex> = Bimap::from_hash_map(
+            self.arena
+                .iter()
+                .map(|(index, _)| index)
+                .enumerate()
+                .collect(),
+        );
+        let mut dsu = UnionFind::<usize>::new(imap.len());
+        {
+            let iter1 = imap.fwd().iter().map(|(&a, &b)| (a, b));
+            let iter2 = iter1.clone();
+            iter1.cartesian_product(iter2)
+        }
+        .filter(|(left, right)| left != right)
+        .filter_map(|((dsui, arni), (dsuj, arnj))| {
+            let typei = self.arena.get(arni).unwrap();
+            let typej = self.arena.get(arnj).unwrap();
+            if typei.is_map()
+                && typej.is_map()
+                && typei
+                    .as_map()
+                    .unwrap()
+                    .is_similar_to(typej.as_map().unwrap())
+            {
+                Some((dsui, dsuj))
+            } else {
+                None
+            }
+        })
+        .for_each(|(dsui, dsuj)| {
+            dsu.union(dsui, dsuj);
+        });
+
+        let mut disjoint_sets = HashMap::<ArenaIndex, HashSet<ArenaIndex>>::new(); // disjoint sets
+        for (arni, r#type) in self.arena.iter() {
+            if r#type.is_map() {
+                let r = imap
+                    .get_rev(&arni)
+                    .and_then(|&dsui| imap.get_fwd(&dsu.find(dsui)))
+                    .cloned()
+                    .unwrap();
+                // if p == indices_arena[&arni] {
+                disjoint_sets.entry(r).or_default().insert(arni);
+                // }
+                // types_to_drop.insert(ari, mem::take(r#type));
+            }
+        }
+        // dbg!("ds", &disjoint_sets);
+        disjoint_sets
+    }
 }
 
 impl Deref for TypeArena {
@@ -48,10 +105,7 @@ pub trait ITypeArena {
     fn get(&self, i: ArenaIndex) -> Option<&Type>;
     fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut Type>;
     fn remove(&mut self, i: ArenaIndex) -> Option<Type>;
-    fn remove_in_favor_of(&mut self, i: ArenaIndex, j: ArenaIndex) -> Option<Type> {
-        let _ = j;
-        self.remove(i)
-    }
+    fn remove_in_favor_of(&mut self, i: ArenaIndex, j: ArenaIndex) -> Option<Type>;
     fn insert(&mut self, value: Type) -> ArenaIndex;
     fn get_primitive_types(&self) -> &[ArenaIndex; 6];
 
@@ -88,6 +142,12 @@ impl ITypeArena for TypeArena {
     #[inline(always)]
     fn remove(&mut self, i: ArenaIndex) -> Option<Type> {
         DerefMut::deref_mut(self).remove(i)
+    }
+
+    #[inline(always)]
+    fn remove_in_favor_of(&mut self, i: ArenaIndex, j: ArenaIndex) -> Option<Type> {
+        let _ = j;
+        self.remove(i)
     }
 
     #[inline(always)]

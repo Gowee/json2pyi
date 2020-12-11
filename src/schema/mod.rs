@@ -2,9 +2,9 @@ mod arena;
 mod map;
 mod union;
 
+pub use self::arena::{ArenaIndex, ArenaOfType, ITypeArena, TypeArena};
 pub use self::map::Map;
 pub use self::union::Union;
-pub use self::arena::{TypeArena, ITypeArena, ArenaIndex, ArenaOfType};
 
 #[derive(Debug)]
 pub struct Schema {
@@ -124,7 +124,6 @@ impl Default for Type {
         Type::Any
     }
 }
-
 
 // impl PartialEq for Type {
 //     fn eq(&self, other: &Self) -> bool {

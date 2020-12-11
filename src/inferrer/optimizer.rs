@@ -16,20 +16,8 @@ pub struct HeuristicInferrer {
 
 impl HeuristicInferrer {
     pub fn optimize(&self, schema: &mut Schema) {
+        let disjoint_sets = schema.arena.get_sets_of_similar_maps();
         let mut arena = TypeArenaWithDSU::from_type_arena(&mut schema.arena);
-
-        let mut disjoint_sets = HashMap::<ArenaIndex, HashSet<ArenaIndex>>::new(); // disjoint sets
-        for (arni, r#type) in arena.arena.iter() {
-            if r#type.is_map() {
-                let r = arena.find_representative(arni).unwrap();
-                // if p == indices_arena[&arni] {
-                disjoint_sets.entry(r).or_default().insert(arni);
-                // }
-                // types_to_drop.insert(ari, mem::take(r#type));
-            }
-        }
-        // dbg!("ds", &disjoint_sets);
-
         // let mut to_replace = HashMap::<ArenaIndex, ArenaIndex>::new();
         {
             for (leader, mut set) in disjoint_sets.into_iter() {
@@ -40,7 +28,10 @@ impl HeuristicInferrer {
                     .cloned()
                     .filter(|&r#type| arena.contains(r#type))
                     .collect::<Vec<ArenaIndex>>();
-                dbg!(&compact_set.iter().map(|&arni| arena.get(arni).unwrap()).collect::<Vec<&Type>>());
+                // dbg!(&compact_set
+                //     .iter()
+                //     .map(|&arni| arena.get(arni).unwrap())
+                //     .collect::<Vec<&Type>>());
                 let mut unioner = Unioner::new(&mut arena);
                 // unioned is now the new leader
                 let leader = unioner.runion(compact_set);
@@ -55,7 +46,7 @@ impl HeuristicInferrer {
         }
         arena.flatten();
 
-        // dbg!(&schema);
+        // // dbg!(&schema);
         // let mut ufnodes: HashMap<ArenaIndex, UnionFind<ArenaIndex>> = Default::default();
         // let arena_indices: Vec<ArenaIndex> = schema.arena.iter().map(|(index, _)| index).collect();
         // let mut dsu = UnionFind::<usize>::new(arena_indices.len());
@@ -96,7 +87,7 @@ impl HeuristicInferrer {
         //         // types_to_drop.insert(ari, mem::take(r#type));
         //     }
         // }
-        // // dbg!("ds", &disjoint_sets);
+        // // // dbg!("ds", &disjoint_sets);
 
         // let mut to_replace = HashMap::<ArenaIndex, ArenaIndex>::new();
         // {
@@ -110,7 +101,7 @@ impl HeuristicInferrer {
         //             .collect::<Vec<ArenaIndex>>();
         //         let mut unioner = Unioner::new(&mut schema.arena, &schema.primitive_types);
         //         // unioned is now the new leader
-        //         // dbg!("merging: ",&set,  &compact_set);
+        //         // // dbg!("merging: ",&set,  &compact_set);
         //         let leader = unioner.runion(compact_set);
         //         for follower in set.into_iter() {
         //             to_replace.insert(follower, leader);
@@ -176,6 +167,7 @@ impl HeuristicInferrer {
     }
 }
 
+#[derive(Debug)]
 pub struct TypeArenaWithDSU<'a> {
     arena: &'a mut TypeArena,
     dsu: UnionFind<usize>,
@@ -188,32 +180,7 @@ impl<'a> TypeArenaWithDSU<'a> {
         let imap: Bimap<usize, ArenaIndex> =
             Bimap::from_hash_map(arena.iter().map(|(index, _)| index).enumerate().collect());
 
-        let mut dsu = UnionFind::<usize>::new(imap.len());
-
-        {
-            let iter1 = imap.fwd().iter().map(|(&a, &b)| (a, b));
-            let iter2 = iter1.clone();
-            iter1.cartesian_product(iter2)
-        }
-        .filter(|(left, right)| left != right)
-        .filter_map(|((dsui, arni), (dsuj, arnj))| {
-            let typei = arena.get(arni).unwrap();
-            let typej = arena.get(arnj).unwrap();
-            if typei.is_map()
-                && typej.is_map()
-                && typei
-                    .as_map()
-                    .unwrap()
-                    .is_similar_to(typej.as_map().unwrap())
-            {
-                Some((dsui, dsuj))
-            } else {
-                None
-            }
-        })
-        .for_each(|(dsui, dsuj)| {
-            dsu.union(dsui, dsuj);
-        });
+        let dsu = UnionFind::<usize>::new(imap.len());
 
         // map from ArenaIndex to DSU index
         // let indices_arena: HashMap<ArenaIndex, usize> = arena_indices
@@ -234,11 +201,12 @@ impl<'a> TypeArenaWithDSU<'a> {
     }
 
     fn flatten(mut self) {
+        dbg!(&self);
         let mut dangling_types = HashSet::new();
 
         let arnis: Vec<ArenaIndex> = self.imap.iter().map(|(_, &arni)| arni).collect();
 
-        // Only check maps in dsu. As there are newly added types during unioning.
+        // Only check maps in DSU, as there are newly added types during unioning.
         for arni in arnis {
             let arnr = self.find_representative(arni).unwrap();
             if arnr != arni {
@@ -249,7 +217,11 @@ impl<'a> TypeArenaWithDSU<'a> {
                     // take the map out and put it back to circumvent borrow rule limitation
                     let mut map = mem::take(r#type).into_map().unwrap();
                     for (_, r#type) in map.fields.iter_mut() {
-                        *r#type = self.find_representative(*r#type).unwrap();
+                        // If this field in in DSU, then replace it with the leader in the DS.
+                        if let Some(arnr) = self.find_representative(*r#type) {
+                            *r#type = arnr;
+                        }
+                        // O.W., it might be new a type during unioning, requiring no action.
                     }
                     *self.get_mut(arni).unwrap() = Type::Map(map);
                 // let r = arena.find_representative(arni).unwrap();
@@ -273,6 +245,7 @@ impl<'a> TypeArenaWithDSU<'a> {
             }
         }
         for r#type in dangling_types.into_iter() {
+            println!("removed dangling: {:?}", r#type);
             self.arena.remove(r#type);
         }
     }
@@ -316,6 +289,15 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
     fn remove(&mut self, i: ArenaIndex) -> Option<Type> {
         // Note: It is not removed from DSU. So just ignore non-existing types when iterating DSU.
         //       As get/get_mut wraps DSU internally, unioner won't get panicked.
+        DerefMut::deref_mut(self).remove(i)
+    }
+
+    fn remove_in_favor_of(&mut self, i: ArenaIndex, j: ArenaIndex) -> Option<Type> {
+        dbg!("rifo", i, j);
+        self.dsu.union(
+            *self.imap.get_rev(&i).unwrap(),
+            *self.imap.get_rev(&j).unwrap(),
+        );
         DerefMut::deref_mut(self).remove(i)
     }
 
