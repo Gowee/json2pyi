@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Bulbasaur",
+    "next_evolution": [
+      {
+        "num": "003",
+        "name": "Venusaur"
+      }
+    ]
+  },
+  {
+    "name": "Ivysaur",
+    "prev_evolution": [
+      {
+        "num": "001",
+        "name": "Bulbasaur"
+      }
+    ],
+    "next_evolution": [
+      {
+        "num": "003",
+        "name": "Venusaur"
+      }
+    ]
+  }
+]

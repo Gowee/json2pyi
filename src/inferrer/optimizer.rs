@@ -212,39 +212,43 @@ impl<'a> TypeArenaWithDSU<'a> {
             if arnr != arni {
                 dangling_types.insert(arni);
             } else {
-                let r#type = self.get_mut(arni).unwrap();
-                if r#type.is_map() {
-                    // take the map out and put it back to circumvent borrow rule limitation
-                    let mut map = mem::take(r#type).into_map().unwrap();
-                    for (_, r#type) in map.fields.iter_mut() {
-                        // If this field in in DSU, then replace it with the leader in the DS.
-                        if let Some(arnr) = self.find_representative(*r#type) {
-                            *r#type = arnr;
+                // Unions might be removed during unioning. So if a representative type is not
+                // there anymore, just ignore it for now. 
+                if let Some(r#type) =  self.get_mut(arni) {
+                    if r#type.is_map() {
+                        // take the map out and put it back to circumvent borrow rule limitation
+                        let mut map = mem::take(r#type).into_map().unwrap();
+                        for (_, r#type) in map.fields.iter_mut() {
+                            // If this field in in DSU, then replace it with the leader in the DS.
+                            if let Some(arnr) = self.find_representative(*r#type) {
+                                *r#type = arnr;
+                            }
+                            // O.W., it might be new a type during unioning, requiring no action.
                         }
-                        // O.W., it might be new a type during unioning, requiring no action.
+                        *self.get_mut(arni).unwrap() = Type::Map(map);
+                    // let r = arena.find_representative(arni).unwrap();
+                    // if p == indices_arena[&arni] {
+                    // disjoint_sets
+                    //     .entry(r)
+                    //     .or_default()
+                    //     .insert(arni);
+                    // }
+                    // types_to_drop.insert(ari, mem::take(r#type));
+                    } else if r#type.is_union() {
+                        unimplemented!();
+                        // let mut union = mem::take(r#type).into_union().unwrap();
+                        // *self.get_mut(arni).unwrap() = Type::Union(
+                        //     union
+                        //         .types
+                        //         .into_iter()
+                        //         .map(|r#type| self.find_representative(r#type).unwrap()),
+                        // );
                     }
-                    *self.get_mut(arni).unwrap() = Type::Map(map);
-                // let r = arena.find_representative(arni).unwrap();
-                // if p == indices_arena[&arni] {
-                // disjoint_sets
-                //     .entry(r)
-                //     .or_default()
-                //     .insert(arni);
-                // }
-                // types_to_drop.insert(ari, mem::take(r#type));
-                } else if r#type.is_union() {
-                    unimplemented!();
-                    // let mut union = mem::take(r#type).into_union().unwrap();
-                    // *self.get_mut(arni).unwrap() = Type::Union(
-                    //     union
-                    //         .types
-                    //         .into_iter()
-                    //         .map(|r#type| self.find_representative(r#type).unwrap()),
-                    // );
                 }
             }
         }
         for r#type in dangling_types.into_iter() {
+            // TODO: Should these all removed during unioning?
             println!("removed dangling: {:?}", r#type);
             self.arena.remove(r#type);
         }
@@ -274,13 +278,15 @@ impl<'a> DerefMut for TypeArenaWithDSU<'a> {
 impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
     #[inline(always)]
     fn get(&self, i: ArenaIndex) -> Option<&Type> {
-        self.find_representative(i)
+        self.find_representative(i) // if it is in the DSU
+            .or(Some(i)) // O.W. it should be a newly added type during unioning
             .and_then(|arni| self.arena.get(arni))
     }
 
     #[inline(always)]
     fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut Type> {
-        self.find_representative(i)
+        self.find_representative(i) // if it is in the DSU
+            .or(Some(i)) // O.W. it should be a newly added type during unioning
             .and_then(move |arni| self.arena.get_mut(arni))
         // FIX: borrowing issue
     }

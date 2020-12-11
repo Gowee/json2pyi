@@ -41,6 +41,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
         let types: Vec<ArenaIndex> = types
             .into_iter()
             .flat_map(|r#type| {
+                dbg!(r#type);
                 match self
                     .arena
                     .get(r#type)
