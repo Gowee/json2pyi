@@ -261,6 +261,12 @@ impl<'a> TypeArenaWithDSU<'a> {
                         // );
                     } else if r#type.is_array() {
                         let inner = mem::take(r#type).into_array().unwrap();
+                        if self.get_mut(arni).is_none() {
+                            unreachable!();
+                        }
+                        if self.find_representative(inner).is_none() {
+                            // continue;
+                        }
                         dbg!(inner);
                         dbg!( self.find_representative(inner));
                         dbg!(arni);

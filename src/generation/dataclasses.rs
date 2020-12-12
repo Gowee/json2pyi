@@ -35,7 +35,7 @@ impl<'a> DataclassesGeneratorClosure<'a> {
                     ref fields,
                 }) => {
                     let mut def = String::new();
-                    def.push_str(&format!("class {}\n", name_hints.iter().join("Or")));
+                    def.push_str(&format!("class {}:\n", name_hints.iter().join("Or")));
 
                     for (key, &r#type) in fields.iter() {
                         def.push_str("    ");
