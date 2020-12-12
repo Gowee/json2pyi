@@ -50,8 +50,9 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                 {
                     Type::Union(_) => {
                         self.arena
-                            .remove(r#type)
+                            .get(r#type)
                             .unwrap()
+                            .clone() // FIX: REMOVE
                             .into_union()
                             .unwrap()
                             .types

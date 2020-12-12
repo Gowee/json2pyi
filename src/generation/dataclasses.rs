@@ -64,9 +64,9 @@ impl<'a> DataclassesGeneratorClosure<'a> {
                 fields: _,
             }) => name_hints.iter().join("Or"),
             Type::Union(Union { ref name_hints, ref types }) => {
-                name_hints.iter().join("Or")
+                // name_hints.iter().join("Or")
                 // FIX: the below line will panic as typeref in unions are not updated after optimizing so far 
-                // types.iter().cloned().map(|r#type| self.get_type_name_by_index(r#type).unwrap()).join(", ")
+                types.iter().cloned().map(|r#type| self.get_type_name_by_index(r#type).unwrap()).join(", ")
             },
             Type::Array(r#type) => {
                 dbg!(r#type);

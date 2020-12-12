@@ -12,7 +12,7 @@ pub struct Schema {
     pub root: ArenaIndex,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Type {
     Map(Map),
     Array(ArenaIndex),
@@ -40,7 +40,7 @@ impl Type {
         }
     }
 
-    pub fn as_mut_map(&mut self) -> Option<&mut Map> {
+    pub fn as_map_mut(&mut self) -> Option<&mut Map> {
         match *self {
             Self::Map(ref mut map) => Some(map),
             _ => None,
@@ -110,6 +110,13 @@ impl Type {
     pub fn as_union(&self) -> Option<&Union> {
         match *self {
             Self::Union(ref types) => Some(types),
+            _ => None,
+        }
+    }
+
+    pub fn as_union_mut(&mut self) -> Option<&mut Union> {
+        match *self {
+            Self::Union(ref mut types) => Some(types),
             _ => None,
         }
     }
