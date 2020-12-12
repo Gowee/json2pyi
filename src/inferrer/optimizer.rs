@@ -264,14 +264,15 @@ impl<'a> TypeArenaWithDSU<'a> {
                         if self.get_mut(arni).is_none() {
                             unreachable!();
                         }
-                        if self.find_representative(inner).is_none() {
-                            // continue;
-                        }
+                        // if self.find_representative(inner).is_none() {
+                        //     panic!("{:?} {:?} {:?}", arni, arnr, self.get(inner));
+                        //     // continue;
+                        // }
                         dbg!(inner);
                         dbg!( self.find_representative(inner));
                         dbg!(arni);
                         dbg!(self.get_mut(arni));
-                        *self.get_mut(arni).unwrap() = Type::Array( self.find_representative(inner).unwrap());
+                        *self.get_mut(arni).unwrap() = Type::Array( self.find_representative(inner).unwrap_or(inner));
                     }
                 }
             
