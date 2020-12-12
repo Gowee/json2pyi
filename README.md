@@ -83,8 +83,8 @@ class RootObject:
 - [ ] Detect tuple (array)
 - [ ] Detect UUID / datetime
 - [ ] Detect Enum
-- [ ] Merge data types with similar structure and common name prefix/suffix
-- [ ] Detect recursive type definition (e.g. tree) 
+- [x] Merge data types with similar structure and common name prefix/suffix
+- [x] Detect recursive type definition (e.g. tree) 
 - [ ] Include imports of non-primitive types
 - [ ] Generate type alias for complex Union
 - [ ] Generate TypedDict

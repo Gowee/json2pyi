@@ -4,7 +4,7 @@ use super::*;
 use crate::generation::schema_to_dataclasses;
 #[test]
 fn test_jvilk_maketypes() {
-    let data = include_str!("../../tests/data/temp.json");
+    let data = include_str!("../../tests/data/githubstatus.json");
     let v: Value = serde_json::from_str(data).unwrap();
 
     let now = std::time::Instant::now();
