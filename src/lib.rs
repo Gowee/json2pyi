@@ -2,4 +2,4 @@
 
 pub mod inferrer;
 pub mod schema;
-// pub mod generation;
+pub mod generation;

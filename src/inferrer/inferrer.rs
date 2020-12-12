@@ -44,27 +44,41 @@ impl BasicInferrerClosure {
             JSONValue::Null => self.arena.get_index_of_primitive(Type::Null),
             JSONValue::Array(ref array) => {
                 let mut types = vec![];
-                let outer_name = outer_name.unwrap_or_else(|| String::from("UnnamedType"));
+
+                let inner_name = outer_name.map(|outer_name| {
+                    // if &outer_name.to_singular() == &outer_name
+                    //     && &outer_name.to_plural() != &outer_name
+                    // {
+                    //     // If it is singular and not uncountable, add a suffix `Item`.
+                    //     format!("{}Item", outer_name)
+                    // } else {
+                    //     // Or it is countable and plural, convert it to singular.
+                    //     outer_name.to_singular()
+                    // }
+                    // Inflector does not care whether a noun is countable or not when pluralization.
+                    // So for now just singularize it unconditionally with suffixing.
+                    outer_name.to_singular()
+                });
+
                 for value in array.iter() {
-                    let type_name = if &outer_name.to_singular() == &outer_name
-                        && &outer_name.to_plural() != &outer_name
-                    {
-                        format!("{}Item", outer_name.to_pascal_case())
-                    } else {
-                        outer_name.to_singular()
-                    };
-                    types.push(self.rinfer(value, Some(type_name)))
+                    // In the current implementation, every union will have at most one map inside.
+                    // So there would be no name collision for now.
+                    types.push(self.rinfer(value, inner_name.clone()))
                 }
-                let inner = union(&mut self.arena, types);
+                let inner = union(&mut self.arena, types); // FIX: union name
                 self.arena.insert(Type::Array(inner))
             }
             JSONValue::Object(ref map) => {
                 let mut fields = IndexMap::new();
                 for (key, value) in map.iter() {
-                    fields.insert(key.to_owned(), self.rinfer(value, Some(key.to_owned())));
+                    fields.insert(key.to_owned(), self.rinfer(value, Some(key.to_pascal_case())));
+                }
+                let mut name_hints = HashSet::new();
+                if let Some(outer_name) = outer_name {
+                    name_hints.insert(outer_name);
                 }
                 self.arena.insert(Type::Map(Map {
-                    name: outer_name.unwrap_or_else(|| String::from("UnnamedType")),
+                    name_hints,
                     fields,
                 }))
             }

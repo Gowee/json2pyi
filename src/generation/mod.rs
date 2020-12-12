@@ -1,1 +1,3 @@
-pub mod dataclasses;
+mod dataclasses;
+
+pub use dataclasses::*;

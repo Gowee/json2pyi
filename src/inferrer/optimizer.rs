@@ -44,6 +44,7 @@ impl HeuristicInferrer {
             }
             // drop unioner to release arena and primitive_types
         }
+        dbg!(&arena);
         arena.flatten();
 
         // // dbg!(&schema);
@@ -201,12 +202,14 @@ impl<'a> TypeArenaWithDSU<'a> {
     }
 
     fn flatten(mut self) {
-        dbg!(&self);
+        // dbg!(&self);
         let mut dangling_types = HashSet::new();
 
         let arnis: Vec<ArenaIndex> = self.imap.iter().map(|(_, &arni)| arni).collect();
+        // let arnis: Vec<ArenaIndex> = self.arena.iter().map(|(arni, _)| arni).collect();
 
-        // Only check maps in DSU, as there are newly added types during unioning.
+        // <del>Only check maps in DSU, as there are newly added types during unioning.</del>
+        // Maps not 
         for arni in arnis {
             let arnr = self.find_representative(arni).unwrap();
             if arnr != arni {
@@ -250,7 +253,7 @@ impl<'a> TypeArenaWithDSU<'a> {
         for r#type in dangling_types.into_iter() {
             // TODO: Should these all removed during unioning?
             println!("removed dangling: {:?}", r#type);
-            self.arena.remove(r#type);
+            assert!(self.arena.remove(r#type).is_none());
         }
     }
 
@@ -278,17 +281,23 @@ impl<'a> DerefMut for TypeArenaWithDSU<'a> {
 impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
     #[inline(always)]
     fn get(&self, i: ArenaIndex) -> Option<&Type> {
-        self.find_representative(i) // if it is in the DSU
+        
+        let t = self.find_representative(i) // if it is in the DSU
             .or(Some(i)) // O.W. it should be a newly added type during unioning
-            .and_then(|arni| self.arena.get(arni))
+            .and_then(|arni| self.arena.get(arni));
+        dbg!(i, &t, self.find_representative(i));
+            t
+
     }
 
     #[inline(always)]
     fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut Type> {
-        self.find_representative(i) // if it is in the DSU
+        let t = self.find_representative(i) // if it is in the DSU
             .or(Some(i)) // O.W. it should be a newly added type during unioning
-            .and_then(move |arni| self.arena.get_mut(arni))
-        // FIX: borrowing issue
+            .and_then(move |arni| self.arena.get_mut(arni));
+            // dbg!(i, &t);
+            t
+            // FIX: borrowing issue
     }
 
     #[inline(always)]

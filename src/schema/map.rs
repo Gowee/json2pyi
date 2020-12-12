@@ -6,7 +6,7 @@ use super::arena::ArenaIndex;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Map {
-    pub name: String,
+    pub name_hints: HashSet<String>, // FIX: IndexMap to ensure name generation is the same all the time
     pub fields: IndexMap<String, ArenaIndex>,
 }
 

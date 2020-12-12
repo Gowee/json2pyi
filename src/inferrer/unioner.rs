@@ -36,12 +36,13 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
         let mut map_count = 0; // Used to determine whether a field is present in all Maps.
                                // All Arrays are collected at first. Then their inner types are unioned recursively.
                                // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
+        let mut map_name_hints = HashSet::new();
         let mut arrays = vec![];
 
         let types: Vec<ArenaIndex> = types
             .into_iter()
             .flat_map(|r#type| {
-                dbg!(r#type);
+                // dbg!(r#type);
                 match self
                     .arena
                     .get(r#type)
@@ -60,9 +61,13 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     _ => vec![r#type], // TODO: avoid unnecessary Vec
                 }
             })
+            .collect::<HashSet<_>>()
+            .into_iter()
             .collect();
         // dbg!(&types);
+        let tys = types.clone();
         for r#type in types {
+            dbg!(r#type, self.arena.get(r#type));
             match *self.arena.get(r#type).unwrap() {
                 Type::Map(_) => {
                     // {// dbg!(self.arena.get(r#type).unwrap());}
@@ -88,34 +93,45 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                         maps.entry(key).or_default().push(r#type);
                     }
                     map_count += 1;
+                    dbg!(&map.name_hints);
+                    map_name_hints.extend(map.name_hints); // NOTE: HashSet.union is NOT in-place.
                 }
                 Type::Array(array) => {
                     arrays.push(array);
                 }
                 Type::Union(_) => unreachable!(), // union should have been expanded above
-                Type::Int => {
-                    unioned.insert(self.arena.get_index_of_primitive(Type::Int));
-                }
-                Type::Float => {
-                    unioned.insert(self.arena.get_index_of_primitive(Type::Float));
-                }
-                Type::Bool => {
-                    unioned.insert(self.arena.get_index_of_primitive(Type::Bool));
-                }
-                Type::String => {
-                    unioned.insert(self.arena.get_index_of_primitive(Type::String));
-                }
-                Type::Null => {
-                    unioned.insert(self.arena.get_index_of_primitive(Type::Null));
-                }
-                Type::Any => {
-                    unioned.insert(self.arena.get_index_of_primitive(Type::Any));
-                }
+                _ => {
+                    // O.W. it is a primitive type. Then just add it to the union as is.
+                    // Note: SPECIAL CASE:
+                    // first_map in a union is taken out with a Any left there. In a recursive
+                    // sub-call, if Any is explicitly matched out and put into the union with
+                    // get_index_of_primitive, then it might cause problem. So in the current
+                    // implementation, the ArenaIndex for Any has to be put into the union as is.
+                    // See the linked-list or tree-recursion test case.
+                    unioned.insert(r#type);
+                } // Type::Int => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Int));
+                                                   // }
+                                                   // Type::Float => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Float));
+                                                   // }
+                                                   // Type::Bool => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Bool));
+                                                   // }
+                                                   // Type::String => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::String));
+                                                   // }
+                                                   // Type::Null => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Null));
+                                                   // }
+                                                   // Type::Any => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Any));
+                                                   // }
             }
         }
 
         // let mut schemas = vec![];
-
+        dbg!(&first_map, &maps);
         if let Some(maps) = maps {
             // merge maps recursively by unioning every possible fields
             // dbg!(&maps);
@@ -130,6 +146,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     (key, self.runion(types))
                 })
                 .collect();
+            dbg!(&unioned_map);
             if unioned_map.is_empty() {
                 // every map is empty (no field at all)
                 // TODO: Any or unit type?
@@ -138,7 +155,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             } else {
                 let slot = first_map.unwrap();
                 *self.arena.get_mut(slot).unwrap() = Type::Map(Map {
-                    name: String::from("aa"),
+                    name_hints: map_name_hints,
                     fields: unioned_map,
                 });
                 unioned.insert(slot);
@@ -175,11 +192,16 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
         //     // Any implies undetermined (e.g. [] or {}). So set it only if there are no concrete type.
         //     schemas.push(Type::Any);
         // }
+        dbg!(&tys, unioned.iter().collect::<Vec<_>>());
         match unioned.len() {
             0 => self.arena.get_index_of_primitive(Type::Any), // Any
             1 => unioned.drain().nth(0).unwrap(),
             _ => self.arena.insert(Type::Union(Union {
-                name: String::from("UnnamedUnion"),
+                name_hints: {
+                    let mut hints = HashSet::new();
+                    hints.insert(String::from("UnnamedUnion"));
+                    hints
+                },
                 types: unioned,
             })),
         }

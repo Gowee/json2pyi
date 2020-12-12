@@ -1,0 +1,4 @@
+/// Python dataclasses
+
+struct Dataclasses;
+
