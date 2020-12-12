@@ -89,6 +89,13 @@ impl Type {
         }
     }
 
+    pub fn into_array(self) -> Option<ArenaIndex> {
+        match self {
+            Self::Array(inner) => Some(inner),
+            _ => None
+        }
+    }
+
     pub fn as_array(&self) -> Option<ArenaIndex> {
         match *self {
             Self::Array(r#type) => Some(r#type),

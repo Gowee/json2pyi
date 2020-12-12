@@ -217,9 +217,9 @@ impl<'a> TypeArenaWithDSU<'a> {
             let arnr = self.find_representative(arni);
             if arnr.is_some() && arnr.unwrap() != arni {
                 // If it is not a new type (already in the DSU before) and it is non-representative.
-                // TODO: shoule be replace inner type references in a representative type?
+                // TODO: shoule replace inner type references in a representative type? // FIX
                 dangling_types.insert(arni);
-            } else {
+            } 
                 // Unions might be removed during unioning. So if a representative type is not
                 // there anymore, just ignore it for now.
                 if let Some(r#type) = self.get_mut(arni) {
@@ -259,9 +259,16 @@ impl<'a> TypeArenaWithDSU<'a> {
                         //         .into_iter()
                         //         .map(|r#type| self.find_representative(r#type).unwrap()),
                         // );
+                    } else if r#type.is_array() {
+                        let inner = mem::take(r#type).into_array().unwrap();
+                        dbg!(inner);
+                        dbg!( self.find_representative(inner));
+                        dbg!(arni);
+                        dbg!(self.get_mut(arni));
+                        *self.get_mut(arni).unwrap() = Type::Array( self.find_representative(inner).unwrap());
                     }
                 }
-            }
+            
         }
         for r#type in dangling_types.into_iter() {
             // TODO: Should these all removed during unioning?
@@ -298,8 +305,8 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
             .find_representative(i) // if it is in the DSU
             .or(Some(i)) // O.W. it should be a newly added type during unioning
             .and_then(|arni| self.arena.get(arni));
-        dbg!(i, &t, self.find_representative(i));
-        t
+        // dbg!(i, &t, self.find_representative(i));
+        t // TODO: clean up
     }
 
     #[inline(always)]
@@ -321,7 +328,7 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
     }
 
     fn remove_in_favor_of(&mut self, i: ArenaIndex, j: ArenaIndex) -> Option<Type> {
-        dbg!("rifo", i, j);
+        // dbg!("rifo", i, j);
         self.dsu.union(
             *self.imap.get_rev(&i).unwrap(),
             *self.imap.get_rev(&j).unwrap(),

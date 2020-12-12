@@ -4,7 +4,7 @@ use super::*;
 use crate::generation::schema_to_dataclasses;
 #[test]
 fn test_jvilk_maketypes() {
-    let data = include_str!("../../tests/data/tree-recursion.json");
+    let data = include_str!("../../tests/data/quicktype.json");
     let v: Value = serde_json::from_str(data).unwrap();
 
     let now = std::time::Instant::now();
@@ -18,7 +18,7 @@ fn test_jvilk_maketypes() {
     }
     .optimize(&mut schema);
     println!("{}", now.elapsed().as_millis());
-    dbg!(&schema);
+    // dbg!(&schema);
     println!("{}", schema_to_dataclasses(&mut schema));
     println!("{}", now.elapsed().as_millis());
 }

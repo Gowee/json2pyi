@@ -50,9 +50,8 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                 {
                     Type::Union(_) => {
                         self.arena
-                            .get(r#type)
+                            .remove(r#type)
                             .unwrap()
-                            .clone() // FIX: REMOVE
                             .into_union()
                             .unwrap()
                             .types
@@ -97,8 +96,10 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     dbg!(&map.name_hints);
                     map_name_hints.extend(map.name_hints); // NOTE: HashSet.union is NOT in-place.
                 }
-                Type::Array(array) => {
-                    arrays.push(array);
+                Type::Array(_) => {
+                    // TODO: FIX : in favor of?
+                    let inner = self.arena.remove(r#type).unwrap().into_array().unwrap();
+                    arrays.push(inner);
                 }
                 Type::Union(_) => unreachable!(), // union should have been expanded above
                 _ => {
