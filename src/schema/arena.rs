@@ -34,7 +34,10 @@ impl TypeArena {
     }
 
     /// Get disjoint sets of similar types.
-    pub fn get_sets_of_similar_maps(&self) -> HashMap<ArenaIndex, HashSet<ArenaIndex>> {
+    pub fn find_disjoint_sets<F>(&self, criteria_fn: F) -> HashMap<ArenaIndex, HashSet<ArenaIndex>>
+    where
+        F: Fn(&Type, &Type) -> bool,
+    {
         let imap: Bimap<usize, ArenaIndex> = Bimap::from_hash_map(
             self.arena
                 .iter()
@@ -52,12 +55,14 @@ impl TypeArena {
         .filter_map(|((dsui, arni), (dsuj, arnj))| {
             let typei = self.arena.get(arni).unwrap();
             let typej = self.arena.get(arnj).unwrap();
-            if typei.is_map()
-                && typej.is_map()
-                && typei
-                    .as_map()
-                    .unwrap()
-                    .is_similar_to(typej.as_map().unwrap())
+            
+            if criteria_fn(typei, typej)
+            //  typei.is_map()
+            //     && typej.is_map()
+            //     && typei
+            //         .as_map()
+            //         .unwrap()
+            //         .is_similar_to(typej.as_map().unwrap())
             {
                 Some((dsui, dsuj))
             } else {
@@ -70,7 +75,7 @@ impl TypeArena {
 
         let mut disjoint_sets = HashMap::<ArenaIndex, HashSet<ArenaIndex>>::new(); // disjoint sets
         for (arni, r#type) in self.arena.iter() {
-            if r#type.is_map() {
+            // if r#type.is_map() {
                 let r = imap
                     .get_rev(&arni)
                     .and_then(|&dsui| imap.get_fwd(&dsu.find(dsui)))
@@ -80,7 +85,7 @@ impl TypeArena {
                 disjoint_sets.entry(r).or_default().insert(arni);
                 // }
                 // types_to_drop.insert(ari, mem::take(r#type));
-            }
+            // }
         }
         // dbg!("ds", &disjoint_sets);
         disjoint_sets

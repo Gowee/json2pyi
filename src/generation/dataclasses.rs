@@ -52,8 +52,11 @@ impl<'a> DataclassesGeneratorClosure<'a> {
         self.datatypes.join("\n\n")
     }
 
-    pub fn get_type_name_by_index(&self, i: ArenaIndex) -> Option<String>{
-        self.schema.arena.get(i).map(|r#type| self.get_type_name(r#type))
+    pub fn get_type_name_by_index(&self, i: ArenaIndex) -> Option<String> {
+        self.schema
+            .arena
+            .get(i)
+            .map(|r#type| self.get_type_name(r#type))
     }
 
     pub fn get_type_name(&self, r#type: &Type) -> String {
@@ -63,15 +66,37 @@ impl<'a> DataclassesGeneratorClosure<'a> {
                 ref name_hints,
                 fields: _,
             }) => name_hints.iter().join("Or"),
-            Type::Union(Union { ref name_hints, ref types }) => {
+            Type::Union(Union {
+                ref name_hints,
+                ref types,
+            }) => {
                 // name_hints.iter().join("Or")
-                // FIX: the below line will panic as typeref in unions are not updated after optimizing so far 
-                types.iter().cloned().map(|r#type| self.get_type_name_by_index(r#type).unwrap()).join(", ")
-            },
+                // FIX: the below line will panic as typeref in unions are not updated after optimizing so far
+                let mut optional = false;
+                let inner = types
+                    .iter()
+                    .cloned()
+                    .map(|r#type| self.schema.arena.get(r#type).unwrap())
+                    .filter(|&r#type| {
+                        if r#type.is_null() {
+                            optional = true;
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                    .map(|r#type| self.get_type_name(r#type))
+                    .join(", ");
+                if optional {
+                    format!("Optional[{}]", inner)
+                } else {
+                    inner
+                }
+            }
             Type::Array(r#type) => {
                 dbg!(r#type);
                 format!("List[{}]", self.get_type_name_by_index(r#type).unwrap())
-            },
+            }
             Type::Int => String::from("int"),
             Type::Float => String::from("float"),
             Type::Bool => String::from("bool"),

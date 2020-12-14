@@ -37,6 +37,8 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                                // All Arrays are collected at first. Then their inner types are unioned recursively.
                                // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
         let mut map_name_hints = HashSet::new();
+        let mut first_union: Option<ArenaIndex> = None;
+        let mut union_name_hints = HashSet::new();
         let mut arrays = vec![];
 
         let types: Vec<ArenaIndex> = types
@@ -49,14 +51,20 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     .expect("It should be there during recusive inferring/unioning")
                 {
                     Type::Union(_) => {
-                        self.arena
-                            .remove(r#type)
-                            .unwrap()
-                            .into_union()
-                            .unwrap()
-                            .types
-                            .into_iter()
-                            .collect::<Vec<ArenaIndex>>() // remove & expand the union
+                        let Union { name_hints, types } = if first_union.is_none() {
+                            first_union = Some(r#type);
+                            mem::take(self.arena.get_mut(r#type).unwrap())
+                                .into_union()
+                                .unwrap()
+                        } else {
+                            self.arena
+                                .remove_in_favor_of(r#type, first_union.unwrap())
+                                .unwrap()
+                                .into_union()
+                                .unwrap() // remove & expand the union
+                        };
+                        union_name_hints.extend(name_hints);
+                        types.into_iter().collect::<Vec<_>>()
                     }
                     _ => vec![r#type], // TODO: avoid unnecessary Vec
                 }
@@ -195,17 +203,29 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
         //     schemas.push(Type::Any);
         // }
         dbg!(&tys, unioned.iter().collect::<Vec<_>>());
+        // if first_union.is_some() {
+        //     //
+        //     assert!(unioned.len() > 1);
+        // }
         match unioned.len() {
             0 => self.arena.get_index_of_primitive(Type::Any), // Any
             1 => unioned.drain().nth(0).unwrap(),
-            _ => self.arena.insert(Type::Union(Union {
-                name_hints: {
-                    let mut hints = HashSet::new();
-                    hints.insert(String::from("UnnamedUnion"));
-                    hints
-                },
-                types: unioned,
-            })),
+            _ => {
+                let union = Type::Union(Union {
+                    name_hints: {
+                        let mut hints = HashSet::new();
+                        hints.insert(String::from("UnnamedUnion"));
+                        hints
+                    },
+                    types: unioned,
+                });
+                if let Some(slot) = first_union {
+                    *self.arena.get_mut(slot).unwrap() = union;
+                    slot
+                } else {
+                    self.arena.insert(union)
+                }
+            }
         }
     }
 }

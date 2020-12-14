@@ -18,7 +18,7 @@ fn test_jvilk_maketypes() {
     }
     .optimize(&mut schema);
     println!("{}", now.elapsed().as_millis());
-    // dbg!(&schema);
+    dbg!(&schema);
     println!("{}", schema_to_dataclasses(&mut schema));
     println!("{}", now.elapsed().as_millis());
 }
