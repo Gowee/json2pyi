@@ -1,7 +1,9 @@
+/// Infer a schema from a given JSONValue
 use indexmap::IndexMap;
 use inflector::Inflector;
-/// Infer a schema from a given JSONValue
 use serde_json::Value as JSONValue;
+use uuid::Uuid;
+use iso8601::datetime as parse_iso8601_datetime;
 
 use std::collections::HashSet;
 
@@ -40,7 +42,17 @@ impl BasicInferrerClosure {
                 }
             }
             JSONValue::Bool(_) => self.arena.get_index_of_primitive(Type::Bool),
-            JSONValue::String(_) => self.arena.get_index_of_primitive(Type::String),
+            JSONValue::String(ref value) => {
+                if parse_iso8601_datetime(value).is_ok() {
+                    self.arena.get_index_of_primitive(Type::Date)
+                }
+                else if Uuid::parse_str(value).is_ok() {
+                    self.arena.get_index_of_primitive(Type::UUID)
+                }
+                else {
+                    self.arena.get_index_of_primitive(Type::String)
+                }
+            },
             JSONValue::Null => self.arena.get_index_of_primitive(Type::Null),
             JSONValue::Array(ref array) => {
                 let mut types = vec![];

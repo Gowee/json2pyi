@@ -21,6 +21,8 @@ pub enum Type {
     Float,
     Bool,
     String,
+    Date,
+    UUID,
     Null,
     Any,
 }

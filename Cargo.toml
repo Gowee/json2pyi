@@ -8,10 +8,12 @@ version = "0.1.0"
 
 [dependencies]
 Inflector = "0.11"
+bidirectional-map = "0.1"
+disjoint-sets = "0.4"
+generational-arena = "0.2"
 indexmap = "1.6"
+iso8601 = "0.4"
+itertools = "0.9"
 serde = "1.0"
 serde_json = {version = "1.0", features = ["preserve_order"]}
-itertools = "0.9"
-generational-arena = "0.2"
-disjoint-sets = "0.4"
-bidirectional-map = "0.1"
+uuid = "0.8"

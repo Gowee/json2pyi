@@ -101,6 +101,8 @@ impl<'a> DataclassesGeneratorClosure<'a> {
             Type::Float => String::from("float"),
             Type::Bool => String::from("bool"),
             Type::String => String::from("str"),
+            Type::Date => String::from("datetime"),
+            Type::UUID => String::from("UUID"),
             Type::Null => String::from("None"),
             Type::Any => String::from("Any"),
         }

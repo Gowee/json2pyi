@@ -438,7 +438,7 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
     }
 
     #[inline(always)]
-    fn get_primitive_types(&self) -> &[ArenaIndex; 6] {
+    fn get_primitive_types(&self) -> &[ArenaIndex; 8] {
         self.arena.get_primitive_types()
     }
 }

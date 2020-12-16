@@ -182,6 +182,20 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             // So if both int and float present in the union, just treat it as float.
             unioned.remove(&self.arena.get_index_of_primitive(Type::Int));
         }
+        {
+            let uuid = unioned.contains(&self.arena.get_index_of_primitive(Type::UUID));
+            let datetime = unioned.contains(&self.arena.get_index_of_primitive(Type::Date));
+            let string = unioned.contains(&self.arena.get_index_of_primitive(Type::String));
+            if uuid & (datetime || string) {
+                unioned.remove(&self.arena.get_index_of_primitive(Type::UUID));
+                unioned.insert(self.arena.get_index_of_primitive(Type::String));
+            }
+            if datetime & (/* uuid || */ string) {
+                unioned.remove(&self.arena.get_index_of_primitive(Type::Date));
+                unioned.insert(self.arena.get_index_of_primitive(Type::String));
+            }
+        }
+
         // if primitive_types[1] {
         //     schemas.push(Type::Float);
         // } else if primitive_types[0] {
