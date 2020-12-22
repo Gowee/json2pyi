@@ -2,13 +2,15 @@ use inflector::Inflector;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashSet, fmt::Write, write};
+use std::{
+    collections::HashSet,
+    fmt::{self, Write},
+    write,
+};
 // use crate::mapset_impl::Map;
 use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, Union};
 
 use super::{GenOutput, Indentation, TargetGenerator};
-
-const ROOT_NAME: &'static str = "UnnamedObject";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonDataclasses {
@@ -26,17 +28,18 @@ impl TargetGenerator for PythonDataclasses {
 }
 
 impl PythonDataclasses {
-    fn write_indentation(&self, s: &mut String) {
+    fn write_indentation(&self, s: &mut String) -> fmt::Result {
         match self.indentation {
             Indentation::Space(len) => {
                 for _ in 0..len {
-                    write!(s, " ");
+                    write!(s, " ")?;
                 }
             }
             Indentation::Tab => {
-                write!(s, "\t");
+                write!(s, "\t")?;
             }
         }
+        Ok(())
     }
 }
 
@@ -69,9 +72,20 @@ impl<'a> GeneratorClosure<'a> {
                     ref name_hints,
                     ref fields,
                 }) => {
-                    write!(self.body, "class {}{}:\n", name_hints.iter().join("Or"), r#type as *const Type as usize).unwrap();
+                    write!(self.body, "class ").unwrap();
+                    if name_hints.is_empty() {
+                        write!(
+                            self.body,
+                            "UnnammedType{:X}",
+                            r#type as *const Type as usize
+                        )
+                        .unwrap();
+                    } else {
+                        write!(self.body, "{}", name_hints.iter().join("Or")).unwrap();
+                    }
+                    write!(self.body, ":\n").unwrap();
                     for (key, &r#type) in fields.iter() {
-                        self.options.write_indentation(&mut self.body);
+                        self.options.write_indentation(&mut self.body).unwrap();
                         write!(
                             self.body,
                             "{}: {}\n",
@@ -92,9 +106,20 @@ impl<'a> GeneratorClosure<'a> {
                                 as usize)
                             > 1;
                         if is_non_trivial {
+                            if name_hints.is_empty() {
+                                write!(
+                                    self.body,
+                                    "UnnammedUnion{:X}",
+                                    r#type as *const Type as usize
+                                )
+                                .unwrap();
+                            } else {
+                                write!(self.body, "{}", name_hints).unwrap();
+                            }
+
                             write!(
                                 self.body,
-                                "{}Union = Union[{}]\n",
+                                "{}Union = Union[{}]",
                                 name_hints.iter().join("Or"),
                                 types
                                     .iter()

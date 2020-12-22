@@ -4,12 +4,12 @@ use super::*;
 use crate::generation::{Indentation, PythonDataclasses, TargetGenerator};
 #[test]
 fn test_jvilk_maketypes() {
-    let data = include_str!("../../tests/data/githubstatus.json");
+    let data = include_str!("../../tests/data/jvilk-maketypes.json");
     let v: Value = serde_json::from_str(data).unwrap();
 
     let now = std::time::Instant::now();
 
-    let mut schema = BasicInferrerClosure::new().infer(&v);
+    let mut schema = infer(&v, None);
     dbg!(&schema);
     HeuristicInferrer {
         merging_similar_datatypes: true,
@@ -24,7 +24,8 @@ fn test_jvilk_maketypes() {
             generate_type_alias_for_union: true,
             indentation: Indentation::Space(4)
         }
-        .generate(&mut schema).body
+        .generate(&mut schema)
+        .body
     );
     println!("{}", now.elapsed().as_millis());
 }

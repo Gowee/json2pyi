@@ -5,8 +5,10 @@ use bidirectional_map::Bimap;
 use disjoint_sets::UnionFind;
 use itertools::Itertools;
 
-use std::collections::{HashMap, HashSet};
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::{Deref, DerefMut},
+};
 
 use super::Type;
 
@@ -57,7 +59,7 @@ impl TypeArena {
         .filter_map(|((dsui, arni), (dsuj, arnj))| {
             let typei = self.arena.get(arni).unwrap();
             let typej = self.arena.get(arnj).unwrap();
-            
+
             if criteria_fn(typei, typej)
             //  typei.is_map()
             //     && typej.is_map()
@@ -78,15 +80,15 @@ impl TypeArena {
         let mut disjoint_sets = HashMap::<ArenaIndex, HashSet<ArenaIndex>>::new(); // disjoint sets
         for (arni, r#type) in self.arena.iter() {
             // if r#type.is_map() {
-                let r = imap
-                    .get_rev(&arni)
-                    .and_then(|&dsui| imap.get_fwd(&dsu.find(dsui)))
-                    .cloned()
-                    .unwrap();
-                // if p == indices_arena[&arni] {
-                disjoint_sets.entry(r).or_default().insert(arni);
-                // }
-                // types_to_drop.insert(ari, mem::take(r#type));
+            let r = imap
+                .get_rev(&arni)
+                .and_then(|&dsui| imap.get_fwd(&dsu.find(dsui)))
+                .cloned()
+                .unwrap();
+            // if p == indices_arena[&arni] {
+            disjoint_sets.entry(r).or_default().insert(arni);
+            // }
+            // types_to_drop.insert(ari, mem::take(r#type));
             // }
         }
         // dbg!("ds", &disjoint_sets);

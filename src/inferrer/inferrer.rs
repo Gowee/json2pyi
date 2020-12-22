@@ -1,9 +1,9 @@
 /// Infer a schema from a given JSONValue
 use indexmap::IndexMap;
 use inflector::Inflector;
+use iso8601::datetime as parse_iso8601_datetime;
 use serde_json::Value as JSONValue;
 use uuid::Uuid;
-use iso8601::datetime as parse_iso8601_datetime;
 
 use std::collections::HashSet;
 
@@ -12,7 +12,11 @@ use super::union;
 use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, TypeArena, Union};
 
 /// infer Schema from `JSONValue`
-struct SchemaInferer {/* ... */}
+pub fn infer(json: &JSONValue, root_name: Option<String>) -> Schema {
+    BasicInferrerClosure::new().infer(json, root_name)
+}
+
+// struct SchemaInferer {/* ... */}
 
 /// An closure for the inferrer to work
 pub struct BasicInferrerClosure {
@@ -21,12 +25,12 @@ pub struct BasicInferrerClosure {
 
 impl BasicInferrerClosure {
     pub fn new() -> Self {
-        let mut arena = TypeArena::new();
+        let arena = TypeArena::new();
         BasicInferrerClosure { arena }
     }
 
-    pub fn infer(mut self, json: &JSONValue) -> Schema {
-        let root = self.rinfer(json, None);
+    pub fn infer(mut self, json: &JSONValue, root_name: Option<String>) -> Schema {
+        let root = self.rinfer(json, root_name);
 
         let arena = self.arena;
         Schema { arena, root }
@@ -45,14 +49,12 @@ impl BasicInferrerClosure {
             JSONValue::String(ref value) => {
                 if parse_iso8601_datetime(value).is_ok() {
                     self.arena.get_index_of_primitive(Type::Date)
-                }
-                else if Uuid::parse_str(value).is_ok() {
+                } else if Uuid::parse_str(value).is_ok() {
                     self.arena.get_index_of_primitive(Type::UUID)
-                }
-                else {
+                } else {
                     self.arena.get_index_of_primitive(Type::String)
                 }
-            },
+            }
             JSONValue::Null => self.arena.get_index_of_primitive(Type::Null),
             JSONValue::Array(ref array) => {
                 let mut types = vec![];
@@ -83,16 +85,16 @@ impl BasicInferrerClosure {
             JSONValue::Object(ref map) => {
                 let mut fields = IndexMap::new();
                 for (key, value) in map.iter() {
-                    fields.insert(key.to_owned(), self.rinfer(value, Some(key.to_pascal_case())));
+                    fields.insert(
+                        key.to_owned(),
+                        self.rinfer(value, Some(key.to_pascal_case())),
+                    );
                 }
                 let mut name_hints = HashSet::new();
                 if let Some(outer_name) = outer_name {
                     name_hints.insert(outer_name);
                 }
-                self.arena.insert(Type::Map(Map {
-                    name_hints,
-                    fields,
-                }))
+                self.arena.insert(Type::Map(Map { name_hints, fields }))
             }
         }
     }

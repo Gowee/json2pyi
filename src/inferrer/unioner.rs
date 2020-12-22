@@ -3,11 +3,10 @@ use inflector::Inflector;
 /// Infer a schema from a given JSONValue
 use serde_json::Value as JSONValue;
 
-use std::collections::HashSet;
-use std::mem;
+use std::{collections::HashSet, mem};
 
 // use crate::mapset_impl::Map;
-use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, TypeArena, Union};
+use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Schema, Type, TypeArena, Union};
 
 pub fn union(arena: &mut TypeArena, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
     Unioner::new(arena).union(types)
@@ -38,7 +37,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                                // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
         let mut map_name_hints = HashSet::new();
         let mut first_union: Option<ArenaIndex> = None;
-        let mut union_name_hints = HashSet::new();
+        let mut union_name_hints = NameHints::new();
         let mut arrays = vec![];
 
         let types: Vec<ArenaIndex> = types
@@ -63,7 +62,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                                 .into_union()
                                 .unwrap() // remove & expand the union
                         };
-                        union_name_hints.extend(name_hints);
+                        union_name_hints.extend(name_hints.into_inner());
                         types.into_iter().collect::<Vec<_>>()
                     }
                     _ => vec![r#type], // TODO: avoid unnecessary Vec
@@ -186,8 +185,9 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             let uuid = unioned.contains(&self.arena.get_index_of_primitive(Type::UUID));
             let datetime = unioned.contains(&self.arena.get_index_of_primitive(Type::Date));
             let string = unioned.contains(&self.arena.get_index_of_primitive(Type::String));
-            
-            if (uuid & datetime) | (string & (uuid ^ datetime)) { // https://stackoverflow.com/a/3090404/5488616
+
+            if (uuid & datetime) | (string & (uuid ^ datetime)) {
+                // https://stackoverflow.com/a/3090404/5488616
                 unioned.remove(&self.arena.get_index_of_primitive(Type::Date));
                 unioned.remove(&self.arena.get_index_of_primitive(Type::UUID));
                 unioned.insert(self.arena.get_index_of_primitive(Type::String));
@@ -227,7 +227,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     name_hints: {
                         let mut hints = HashSet::new();
                         hints.insert(String::from("UnnamedUnion"));
-                        hints
+                        hints.into()
                     },
                     types: unioned,
                 });

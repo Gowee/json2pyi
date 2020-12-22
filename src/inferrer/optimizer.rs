@@ -2,9 +2,11 @@ use bidirectional_map::Bimap;
 use disjoint_sets::UnionFind;
 use itertools::Itertools;
 
-use std::collections::{HashMap, HashSet};
-use std::mem;
-use std::ops::{Deref, DerefMut, Drop};
+use std::{
+    collections::{HashMap, HashSet},
+    mem,
+    ops::{Deref, DerefMut, Drop},
+};
 
 use super::Unioner;
 use crate::schema::{ArenaIndex, ArenaOfType, ITypeArena, Map, Schema, Type, TypeArena};
@@ -34,27 +36,27 @@ impl HeuristicInferrer {
         // let mut to_replace = HashMap::<ArenaIndex, ArenaIndex>::new();
         {
             for (leader, mut set) in maps_sets.into_iter() {
-                if Some(true) == arena.get(leader).map(|r#type|r#type.is_map()) {
-                set.insert(leader); // leader in disjoint set is now a follower
+                if Some(true) == arena.get(leader).map(|r#type| r#type.is_map()) {
+                    set.insert(leader); // leader in disjoint set is now a follower
 
-                let compact_set = set
-                    .iter()
-                    .cloned()
-                    .filter(|&r#type| arena.contains(r#type))
-                    .collect::<Vec<ArenaIndex>>();
-                // dbg!(&compact_set
-                //     .iter()
-                //     .map(|&arni| arena.get(arni).unwrap())
-                //     .collect::<Vec<&Type>>());
-                let mut unioner = Unioner::new(&mut arena);
-                // unioned is now the new leader
-                let leader = unioner.runion(compact_set);
-                // for follower in set.into_iter() {
-                //     to_replace.insert(follower, leader);
-                // }
+                    let compact_set = set
+                        .iter()
+                        .cloned()
+                        .filter(|&r#type| arena.contains(r#type))
+                        .collect::<Vec<ArenaIndex>>();
+                    // dbg!(&compact_set
+                    //     .iter()
+                    //     .map(|&arni| arena.get(arni).unwrap())
+                    //     .collect::<Vec<&Type>>());
+                    let mut unioner = Unioner::new(&mut arena);
+                    // unioned is now the new leader
+                    let leader = unioner.runion(compact_set);
+                    // for follower in set.into_iter() {
+                    //     to_replace.insert(follower, leader);
+                    // }
 
-                // union set and update all reference
-                // schema.arena.get_mut(primary)
+                    // union set and update all reference
+                    // schema.arena.get_mut(primary)
                 }
             }
             // drop unioner to release arena and primitive_types
@@ -214,8 +216,7 @@ impl HeuristicInferrer {
                 a.types == b.types
             // } else if let (Some(a), Some(b)) = (a.as_array(), b.as_array()) {
             //     a == b
-            }
-            else {
+            } else {
                 false
             }
         });
@@ -224,30 +225,32 @@ impl HeuristicInferrer {
         // let mut to_replace = HashMap::<ArenaIndex, ArenaIndex>::new();
         {
             for (leader, mut set) in unions_sets.into_iter() {
-                if Some(true) == arena.get(leader).map(|r#type|r#type.is_union() /*|| r#type.is_array()*/) {
+                if Some(true)
+                    == arena
+                        .get(leader)
+                        .map(|r#type| r#type.is_union() /*|| r#type.is_array()*/)
+                {
+                    set.insert(leader); // leader in disjoint set is now a follower
+                    dbg!(&set);
+                    let compact_set = set
+                        .iter()
+                        .cloned()
+                        .filter(|&r#type| arena.contains(r#type))
+                        .collect::<Vec<ArenaIndex>>();
+                    // dbg!(&compact_set
+                    //     .iter()
+                    //     .map(|&arni| arena.get(arni).unwrap())
+                    //     .collect::<Vec<&Type>>());
+                    let mut unioner = Unioner::new(&mut arena);
+                    // unioned is now the new leader
+                    let leader = unioner.runion(compact_set);
+                    // for follower in set.into_iter() {
+                    //     to_replace.insert(follower, leader);
+                    // }
 
-                set.insert(leader); // leader in disjoint set is now a follower
-                dbg!(&set);
-                let compact_set = set
-                    .iter()
-                    .cloned()
-                    .filter(|&r#type| arena.contains(r#type))
-                    .collect::<Vec<ArenaIndex>>();
-                // dbg!(&compact_set
-                //     .iter()
-                //     .map(|&arni| arena.get(arni).unwrap())
-                //     .collect::<Vec<&Type>>());
-                let mut unioner = Unioner::new(&mut arena);
-                // unioned is now the new leader
-                let leader = unioner.runion(compact_set);
-                // for follower in set.into_iter() {
-                //     to_replace.insert(follower, leader);
-                // }
-
-                // union set and update all reference
-                // schema.arena.get_mut(primary)
-            }
-
+                    // union set and update all reference
+                    // schema.arena.get_mut(primary)
+                }
             }
             // drop unioner to release arena and primitive_types
         }

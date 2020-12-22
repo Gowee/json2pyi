@@ -2,13 +2,17 @@ use std::collections::HashSet;
 
 mod arena;
 mod map;
+mod name_hints;
 mod union;
 
 use generational_arena::Arena;
 
-pub use self::arena::{ArenaIndex, ArenaOfType, ITypeArena, TypeArena};
-pub use self::map::Map;
-pub use self::union::Union;
+pub use self::{
+    arena::{ArenaIndex, ArenaOfType, ITypeArena, TypeArena},
+    map::Map,
+    name_hints::NameHints,
+    union::Union,
+};
 
 #[derive(Debug)]
 pub struct Schema {
@@ -49,7 +53,7 @@ impl<'a> Iterator for TopdownIter<'a> {
             let r#type = arena.get(curr).unwrap();
             match *r#type {
                 Type::Map(ref map) => {
-                    for (_, &r#type) in map.fields.iter() {
+                    for (_, &r#type) in map.fields.iter().rev() {
                         if !seen.contains(&r#type) {
                             stack.push(r#type);
                             seen.insert(r#type);
@@ -81,6 +85,8 @@ impl<'a> Iterator for TopdownIter<'a> {
 
 impl Schema {
     pub fn iter_topdown(&self) -> TopdownIter {
+        // TODO: iterate in topological order by BFS
+        //       which needs a predicate fn to determine whether to flat a union/map in its level
         TopdownIter {
             arena: &self.arena,
             stack: vec![self.root],
