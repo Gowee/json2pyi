@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use std::{
     collections::HashSet,
-    fmt::{self, Write},
+    fmt::{self, Display, Write},
     write,
 };
 // use crate::mapset_impl::Map;
 use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, Union};
 
-use super::{GenOutput, Indentation, TargetGenerator};
+use super::{wrap, GenOutput, Indentation, TargetGenerator, Wrapped};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonDataclasses {
@@ -24,22 +24,6 @@ impl TargetGenerator for PythonDataclasses {
         let closure = GeneratorClosure::new(schema, self);
 
         closure.run()
-    }
-}
-
-impl PythonDataclasses {
-    fn write_indentation(&self, s: &mut String) -> fmt::Result {
-        match self.indentation {
-            Indentation::Space(len) => {
-                for _ in 0..len {
-                    write!(s, " ")?;
-                }
-            }
-            Indentation::Tab => {
-                write!(s, "\t")?;
-            }
-        }
-        Ok(())
     }
 }
 
@@ -72,25 +56,23 @@ impl<'a> GeneratorClosure<'a> {
                     ref name_hints,
                     ref fields,
                 }) => {
-                    write!(self.body, "class ").unwrap();
-                    if name_hints.is_empty() {
-                        write!(
-                            self.body,
-                            "UnnammedType{:X}",
-                            r#type as *const Type as usize
-                        )
-                        .unwrap();
-                    } else {
-                        write!(self.body, "{}", name_hints.iter().join("Or")).unwrap();
-                    }
-                    write!(self.body, ":\n").unwrap();
+                    write!(
+                        self.body,
+                        "class {}:\n",
+                        wrap(r#type, self.schema, self.options)
+                    )
+                    .unwrap();
                     for (key, &r#type) in fields.iter() {
-                        self.options.write_indentation(&mut self.body).unwrap();
                         write!(
                             self.body,
-                            "{}: {}\n",
+                            "{}{}: {}\n",
+                            self.options.indentation,
                             key,
-                            self.get_type_name_by_index(r#type).unwrap()
+                            wrap(
+                                self.schema.arena.get(r#type).unwrap(),
+                                self.schema,
+                                self.options
+                            )
                         )
                         .unwrap();
                     }
@@ -106,26 +88,11 @@ impl<'a> GeneratorClosure<'a> {
                                 as usize)
                             > 1;
                         if is_non_trivial {
-                            if name_hints.is_empty() {
-                                write!(
-                                    self.body,
-                                    "UnnammedUnion{:X}",
-                                    r#type as *const Type as usize
-                                )
-                                .unwrap();
-                            } else {
-                                write!(self.body, "{}", name_hints).unwrap();
-                            }
-
                             write!(
                                 self.body,
-                                "{}Union = Union[{}]",
-                                name_hints.iter().join("Or"),
-                                types
-                                    .iter()
-                                    .cloned()
-                                    .map(|r#type| self.get_type_name_by_index(r#type).unwrap())
-                                    .join(", ")
+                                "{}Union = {}",
+                                wrap(r#type, self.schema, self.options),
+                                wrap(types, self.schema,self.options)
                             )
                             .unwrap();
                             write!(self.body, "\n").unwrap();
@@ -142,71 +109,71 @@ impl<'a> GeneratorClosure<'a> {
         }
     }
 
-    pub fn get_type_name_by_index(&self, i: ArenaIndex) -> Option<String> {
-        self.schema
-            .arena
-            .get(i)
-            .map(|r#type| self.get_type_name(r#type))
-    }
+    // pub fn get_type_name_by_index(&self, i: ArenaIndex) -> Option<String> {
+    //     self.schema
+    //         .arena
+    //         .get(i)
+    //         .map(|r#type| self.get_type_name(r#type))
+    // }
 
-    pub fn get_type_name(&self, r#type: &Type) -> String {
-        // match self.schema.arena.
-        match *r#type {
-            Type::Map(Map {
-                ref name_hints,
-                fields: _,
-            }) => name_hints.iter().join("Or"),
-            Type::Union(Union {
-                ref name_hints,
-                ref types,
-            }) => {
-                // name_hints.iter().join("Or")
-                // FIX: the below line will panic as typeref in unions are not updated after optimizing so far
-                if self.options.generate_type_alias_for_union && {
-                    let is_non_trivial = (types.len()
-                        - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
-                            as usize)
-                        > 1;
-                    is_non_trivial
-                } {
-                    name_hints.iter().join("Or")
-                } else {
-                    let mut optional = false;
-                    let inner = types
-                        .iter()
-                        .cloned()
-                        .map(|r#type| self.schema.arena.get(r#type).unwrap())
-                        .filter(|&r#type| {
-                            if r#type.is_null() {
-                                optional = true;
-                                false
-                            } else {
-                                true
-                            }
-                        })
-                        .map(|r#type| self.get_type_name(r#type))
-                        .join(", ");
-                    if optional {
-                        format!("Optional[{}]", inner)
-                    } else {
-                        inner
-                    }
-                }
-            }
-            Type::Array(r#type) => {
-                dbg!(r#type);
-                format!("List[{}]", self.get_type_name_by_index(r#type).unwrap())
-            }
-            Type::Int => String::from("int"),
-            Type::Float => String::from("float"),
-            Type::Bool => String::from("bool"),
-            Type::String => String::from("str"),
-            Type::Date => String::from("datetime"),
-            Type::UUID => String::from("UUID"),
-            Type::Null => String::from("None"),
-            Type::Any => String::from("Any"),
-        }
-    }
+    // pub fn get_type_name(&self, r#type: &Type) -> String {
+    //     // match self.schema.arena.
+    //     match *r#type {
+    //         Type::Map(Map {
+    //             ref name_hints,
+    //             fields: _,
+    //         }) => name_hints.iter().join("Or"),
+    //         Type::Union(Union {
+    //             ref name_hints,
+    //             ref types,
+    //         }) => {
+    //             // name_hints.iter().join("Or")
+    //             // FIX: the below line will panic as typeref in unions are not updated after optimizing so far
+    //             if self.options.generate_type_alias_for_union && {
+    //                 let is_non_trivial = (types.len()
+    //                     - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
+    //                         as usize)
+    //                     > 1;
+    //                 is_non_trivial
+    //             } {
+    //                 name_hints.iter().join("Or")
+    //             } else {
+    //                 let mut optional = false;
+    //                 let inner = types
+    //                     .iter()
+    //                     .cloned()
+    //                     .map(|r#type| self.schema.arena.get(r#type).unwrap())
+    //                     .filter(|&r#type| {
+    //                         if r#type.is_null() {
+    //                             optional = true;
+    //                             false
+    //                         } else {
+    //                             true
+    //                         }
+    //                     })
+    //                     .map(|r#type| self.get_type_name(r#type))
+    //                     .join(", ");
+    //                 if optional {
+    //                     format!("Optional[{}]", inner)
+    //                 } else {
+    //                     inner
+    //                 }
+    //             }
+    //         }
+    //         Type::Array(r#type) => {
+    //             dbg!(r#type);
+    //             format!("List[{}]", self.get_type_name_by_index(r#type).unwrap())
+    //         }
+    //         Type::Int => String::from("int"),
+    //         Type::Float => String::from("float"),
+    //         Type::Bool => String::from("bool"),
+    //         Type::String => String::from("str"),
+    //         Type::Date => String::from("datetime"),
+    //         Type::UUID => String::from("UUID"),
+    //         Type::Null => String::from("None"),
+    //         Type::Any => String::from("Any"),
+    //     }
+    // }
 
     // pub fn get_union_as_variants(&self, union: &Union) -> String {
     // let mut optional = false;
@@ -231,6 +198,91 @@ impl<'a> GeneratorClosure<'a> {
     //     inner
     // }
     // }
+}
+
+impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, Type, PythonDataclasses> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.inner {
+            Type::Map(Map {
+                ref name_hints,
+                fields: _,
+            }) => {
+                if name_hints.is_empty() {
+                    write!(f, "UnnammedType{:X}", self.inner as *const Type as usize)
+                } else {
+                    name_hints.fmt(f)
+                }
+            }
+            Type::Union(Union {
+                ref name_hints,
+                ref types,
+            }) => {
+                // name_hints.iter().join("Or")
+                // FIX: the below line will panic as typeref in unions are not updated after optimizing so far
+                if self.options.generate_type_alias_for_union && {
+                    let is_non_trivial = (types.len()
+                        - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
+                            as usize)
+                        > 1;
+                    is_non_trivial
+                } {
+                    if name_hints.is_empty() {
+                        write!(f, "UnnammedUnion{:X}", self.inner as *const Type as usize)
+                    } else {
+                        write!(f, "{}Union", name_hints)
+                    }
+                } else {
+                    let optional =
+                        types.contains(&self.schema.arena.get_index_of_primitive(Type::Null));
+                    let union = wrap(types, self.schema, self.options);
+                    if optional {
+                        write!(f, "Optional[{}]", union)
+                    } else {
+                        union.fmt(f)
+                    }
+                }
+            }
+            Type::Array(r#type) => {
+                // dbg!(r#type);
+                write!(
+                    f,
+                    "List[{}]",
+                    self.wrap(self.schema.arena.get(*r#type).unwrap())
+                )
+            }
+            Type::Int => write!(f, "int"),
+            Type::Float => write!(f, "float"),
+            Type::Bool => write!(f, "bool"),
+            Type::String => write!(f, "str"),
+            Type::Date => write!(f, "datetime"),
+            Type::UUID => write!(f, "UUID"),
+            Type::Null => write!(f, "None"),
+            Type::Any => write!(f, "Any"),
+        }
+    }
+}
+
+impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, HashSet<ArenaIndex>, PythonDataclasses> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // NOTE: return value is a union of variants instead of a concatenated string name hints;
+        //       null is discarded here
+        write!(f, "Union[")?;
+        let mut iter = self
+            .inner
+            .iter()
+            .cloned()
+            .map(|r#type| self.schema.arena.get(r#type).unwrap())
+            .filter(|&r#type| !r#type.is_null())
+            .peekable();
+        while let Some(r#type) = iter.next() {
+            // manually intersperse
+            write!(f, "{}", wrap(r#type, self.schema, self.options))?;
+            if iter.peek().is_none() {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, "]")
+    }
 }
 
 // impl Schema {

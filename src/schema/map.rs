@@ -2,11 +2,11 @@ use indexmap::IndexMap;
 
 use std::collections::HashSet;
 
-use super::arena::ArenaIndex;
+use super::{arena::ArenaIndex, name_hints::NameHints};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Map {
-    pub name_hints: HashSet<String>, // FIX: IndexMap to ensure name generation is the same all the time
+    pub name_hints: NameHints, // FIX: IndexMap to ensure name generation is the same all the time
     pub fields: IndexMap<String, ArenaIndex>,
 }
 

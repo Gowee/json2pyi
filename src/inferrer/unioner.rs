@@ -35,7 +35,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
         let mut map_count = 0; // Used to determine whether a field is present in all Maps.
                                // All Arrays are collected at first. Then their inner types are unioned recursively.
                                // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
-        let mut map_name_hints = HashSet::new();
+        let mut map_name_hints = NameHints::new();
         let mut first_union: Option<ArenaIndex> = None;
         let mut union_name_hints = NameHints::new();
         let mut arrays = vec![];
@@ -101,7 +101,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     }
                     map_count += 1;
                     dbg!(&map.name_hints);
-                    map_name_hints.extend(map.name_hints); // NOTE: HashSet.union is NOT in-place.
+                    map_name_hints.extend(map.name_hints.into_inner()); // NOTE: HashSet.union is NOT in-place.
                 }
                 Type::Array(_) => {
                     // TODO: FIX : in favor of?

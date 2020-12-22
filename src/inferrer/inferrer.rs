@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 // use crate::mapset_impl::Map;
 use super::union;
-use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, TypeArena, Union};
+use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, TypeArena, Union, NameHints};
 
 /// infer Schema from `JSONValue`
 pub fn infer(json: &JSONValue, root_name: Option<String>) -> Schema {
@@ -90,7 +90,7 @@ impl BasicInferrerClosure {
                         self.rinfer(value, Some(key.to_pascal_case())),
                     );
                 }
-                let mut name_hints = HashSet::new();
+                let mut name_hints = NameHints::new();
                 if let Some(outer_name) = outer_name {
                     name_hints.insert(outer_name);
                 }
