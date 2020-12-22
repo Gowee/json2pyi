@@ -1,55 +1,120 @@
 use inflector::Inflector;
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Write, write};
 // use crate::mapset_impl::Map;
-use crate::schema::{ArenaIndex, Map, Schema, Type, Union};
+use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, Union};
+
+use super::{GenOutput, Indentation, TargetGenerator};
 
 const ROOT_NAME: &'static str = "UnnamedObject";
 
-pub fn schema_to_dataclasses(schema: &mut Schema) -> String {
-    DataclassesGeneratorClosure::new(schema).generate()
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PythonDataclasses {
+    pub generate_type_alias_for_union: bool,
+    pub indentation: Indentation,
 }
+
+#[typetag::serde]
+impl TargetGenerator for PythonDataclasses {
+    fn generate(&self, schema: &Schema) -> GenOutput {
+        let closure = GeneratorClosure::new(schema, self);
+
+        closure.run()
+    }
+}
+
+impl PythonDataclasses {
+    fn write_indentation(&self, s: &mut String) {
+        match self.indentation {
+            Indentation::Space(len) => {
+                for _ in 0..len {
+                    write!(s, " ");
+                }
+            }
+            Indentation::Tab => {
+                write!(s, "\t");
+            }
+        }
+    }
+}
+
+// pub fn schema_to_dataclasses(schema: &mut Schema) -> String {
+//     DataclassesGeneratorClosure::new(schema).generate()
+// }
 
 #[derive(Debug)]
-pub struct DataclassesGeneratorClosure<'a> {
+pub struct GeneratorClosure<'a> {
     schema: &'a Schema,
-    types_to_import: HashSet<String>,
-    datatypes: Vec<String>,
+    options: &'a PythonDataclasses,
+    header: String,
+    body: String,
 }
 
-impl<'a> DataclassesGeneratorClosure<'a> {
-    pub fn new(schema: &'a Schema) -> Self {
-        DataclassesGeneratorClosure {
+impl<'a> GeneratorClosure<'a> {
+    pub fn new(schema: &'a Schema, options: &'a PythonDataclasses) -> Self {
+        GeneratorClosure {
             schema,
-            types_to_import: HashSet::new(),
-            datatypes: Vec::new(),
+            options,
+            header: String::new(),
+            body: String::new(),
         }
     }
 
-    pub fn generate(mut self) -> String {
-        for (_, r#type) in self.schema.arena.iter() {
+    pub fn run(mut self) -> GenOutput {
+        for r#type in self.schema.iter_topdown() {
             match *r#type {
                 Type::Map(Map {
                     ref name_hints,
                     ref fields,
                 }) => {
-                    let mut def = String::new();
-                    def.push_str(&format!("class {}:\n", name_hints.iter().join("Or")));
-
+                    write!(self.body, "class {}{}:\n", name_hints.iter().join("Or"), r#type as *const Type as usize).unwrap();
                     for (key, &r#type) in fields.iter() {
-                        def.push_str("    ");
-                        def.push_str(key);
-                        def.push_str(": ");
-                        def.push_str(&self.get_type_name_by_index(r#type).unwrap());
-                        def.push_str("\n");
+                        self.options.write_indentation(&mut self.body);
+                        write!(
+                            self.body,
+                            "{}: {}\n",
+                            key,
+                            self.get_type_name_by_index(r#type).unwrap()
+                        )
+                        .unwrap();
                     }
-                    self.datatypes.push(def);
+                    write!(self.body, "\n").unwrap();
+                }
+                Type::Union(Union {
+                    ref name_hints,
+                    ref types,
+                }) => {
+                    if self.options.generate_type_alias_for_union {
+                        let is_non_trivial = (types.len()
+                            - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
+                                as usize)
+                            > 1;
+                        if is_non_trivial {
+                            write!(
+                                self.body,
+                                "{}Union = Union[{}]\n",
+                                name_hints.iter().join("Or"),
+                                types
+                                    .iter()
+                                    .cloned()
+                                    .map(|r#type| self.get_type_name_by_index(r#type).unwrap())
+                                    .join(", ")
+                            )
+                            .unwrap();
+                            write!(self.body, "\n").unwrap();
+                        }
+                    }
                 }
                 _ => {}
             }
         }
-        self.datatypes.join("\n\n")
+        GenOutput {
+            header: self.header,
+            body: self.body,
+            additional: String::new(),
+        }
     }
 
     pub fn get_type_name_by_index(&self, i: ArenaIndex) -> Option<String> {
@@ -72,25 +137,35 @@ impl<'a> DataclassesGeneratorClosure<'a> {
             }) => {
                 // name_hints.iter().join("Or")
                 // FIX: the below line will panic as typeref in unions are not updated after optimizing so far
-                let mut optional = false;
-                let inner = types
-                    .iter()
-                    .cloned()
-                    .map(|r#type| self.schema.arena.get(r#type).unwrap())
-                    .filter(|&r#type| {
-                        if r#type.is_null() {
-                            optional = true;
-                            false
-                        } else {
-                            true
-                        }
-                    })
-                    .map(|r#type| self.get_type_name(r#type))
-                    .join(", ");
-                if optional {
-                    format!("Optional[{}]", inner)
+                if self.options.generate_type_alias_for_union && {
+                    let is_non_trivial = (types.len()
+                        - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
+                            as usize)
+                        > 1;
+                    is_non_trivial
+                } {
+                    name_hints.iter().join("Or")
                 } else {
-                    inner
+                    let mut optional = false;
+                    let inner = types
+                        .iter()
+                        .cloned()
+                        .map(|r#type| self.schema.arena.get(r#type).unwrap())
+                        .filter(|&r#type| {
+                            if r#type.is_null() {
+                                optional = true;
+                                false
+                            } else {
+                                true
+                            }
+                        })
+                        .map(|r#type| self.get_type_name(r#type))
+                        .join(", ");
+                    if optional {
+                        format!("Optional[{}]", inner)
+                    } else {
+                        inner
+                    }
                 }
             }
             Type::Array(r#type) => {
@@ -107,6 +182,30 @@ impl<'a> DataclassesGeneratorClosure<'a> {
             Type::Any => String::from("Any"),
         }
     }
+
+    // pub fn get_union_as_variants(&self, union: &Union) -> String {
+    // let mut optional = false;
+    // let types =
+    // let inner = types
+    //     .iter()
+    //     .cloned()
+    //     .map(|r#type| self.schema.arena.get(r#type).unwrap())
+    //     .filter(|&r#type| {
+    //         if r#type.is_null() {
+    //             optional = true;
+    //             false
+    //         } else {
+    //             true
+    //         }
+    //     })
+    //     .map(|r#type| self.get_type_name(r#type))
+    //     .join(", ");
+    // if optional {
+    //     format!("Optional[{}]", inner)
+    // } else {
+    //     inner
+    // }
+    // }
 }
 
 // impl Schema {

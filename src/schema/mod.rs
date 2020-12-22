@@ -1,6 +1,10 @@
+use std::collections::HashSet;
+
 mod arena;
 mod map;
 mod union;
+
+use generational_arena::Arena;
 
 pub use self::arena::{ArenaIndex, ArenaOfType, ITypeArena, TypeArena};
 pub use self::map::Map;
@@ -25,6 +29,64 @@ pub enum Type {
     UUID,
     Null,
     Any,
+}
+
+pub struct TopdownIter<'a> {
+    arena: &'a TypeArena,
+    stack: Vec<ArenaIndex>,
+    seen: HashSet<ArenaIndex>,
+}
+
+impl<'a> Iterator for TopdownIter<'a> {
+    type Item = &'a Type;
+    fn next(&mut self) -> Option<Self::Item> {
+        let Self {
+            arena,
+            ref mut stack,
+            ref mut seen,
+        } = self;
+        if let Some(curr) = stack.pop() {
+            let r#type = arena.get(curr).unwrap();
+            match *r#type {
+                Type::Map(ref map) => {
+                    for (_, &r#type) in map.fields.iter() {
+                        if !seen.contains(&r#type) {
+                            stack.push(r#type);
+                            seen.insert(r#type);
+                        }
+                    }
+                }
+                Type::Array(inner) => {
+                    if !seen.contains(&inner) {
+                        stack.push(inner);
+                        seen.insert(inner);
+                    }
+                }
+                Type::Union(ref union) => {
+                    for &r#type in union.types.iter() {
+                        if !seen.contains(&r#type) {
+                            stack.push(r#type);
+                            seen.insert(r#type);
+                        }
+                    }
+                }
+                _ => (),
+            }
+            Some(r#type)
+        } else {
+            None
+        }
+    }
+}
+
+impl Schema {
+    pub fn iter_topdown(&self) -> TopdownIter {
+        TopdownIter {
+            arena: &self.arena,
+            stack: vec![self.root],
+            seen: Default::default(),
+        }
+    }
 }
 
 impl Type {
@@ -94,7 +156,7 @@ impl Type {
     pub fn into_array(self) -> Option<ArenaIndex> {
         match self {
             Self::Array(inner) => Some(inner),
-            _ => None
+            _ => None,
         }
     }
 

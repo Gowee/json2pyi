@@ -186,12 +186,10 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             let uuid = unioned.contains(&self.arena.get_index_of_primitive(Type::UUID));
             let datetime = unioned.contains(&self.arena.get_index_of_primitive(Type::Date));
             let string = unioned.contains(&self.arena.get_index_of_primitive(Type::String));
-            if uuid & (datetime || string) {
-                unioned.remove(&self.arena.get_index_of_primitive(Type::UUID));
-                unioned.insert(self.arena.get_index_of_primitive(Type::String));
-            }
-            if datetime & (/* uuid || */ string) {
+            
+            if (uuid & datetime) | (string & (uuid ^ datetime)) { // https://stackoverflow.com/a/3090404/5488616
                 unioned.remove(&self.arena.get_index_of_primitive(Type::Date));
+                unioned.remove(&self.arena.get_index_of_primitive(Type::UUID));
                 unioned.insert(self.arena.get_index_of_primitive(Type::String));
             }
         }

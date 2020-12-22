@@ -17,7 +17,7 @@ pub struct HeuristicInferrer {
 impl HeuristicInferrer {
     pub fn optimize(&self, schema: &mut Schema) {
         self.merge_similar_maps(schema);
-        // self.merge_same_union(schema);
+        self.merge_same_union(schema);
     }
 
     pub fn merge_similar_maps(&self, schema: &mut Schema) {
