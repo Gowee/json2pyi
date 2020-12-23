@@ -4,7 +4,7 @@ use super::*;
 use crate::generation::{Indentation, PythonDataclasses, TargetGenerator};
 #[test]
 fn test_jvilk_maketypes() {
-    let data = include_str!("../../tests/data/jvilk-maketypes.json");
+    let data = include_str!("../../tests/data/githubstatus.json");
     let v: Value = serde_json::from_str(data).unwrap();
 
     let now = std::time::Instant::now();
@@ -21,7 +21,7 @@ fn test_jvilk_maketypes() {
     println!(
         "{}",
         PythonDataclasses {
-            generate_type_alias_for_union: true,
+            generate_type_alias_for_union: false,
             indentation: Indentation::Space(4)
         }
         .generate(&mut schema)

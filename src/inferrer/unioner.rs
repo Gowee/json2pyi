@@ -224,11 +224,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             1 => unioned.drain().nth(0).unwrap(),
             _ => {
                 let union = Type::Union(Union {
-                    name_hints: {
-                        let mut hints = HashSet::new();
-                        hints.insert(String::from("UnnamedUnion"));
-                        hints.into()
-                    },
+                    name_hints: union_name_hints,
                     types: unioned,
                 });
                 if let Some(slot) = first_union {

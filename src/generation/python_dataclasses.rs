@@ -1,5 +1,6 @@
+use indexmap::IndexMap;
 use inflector::Inflector;
-use itertools::Itertools;
+use itertools::{multipeek, Itertools};
 use serde::{Deserialize, Serialize};
 
 use std::{
@@ -58,24 +59,25 @@ impl<'a> GeneratorClosure<'a> {
                 }) => {
                     write!(
                         self.body,
-                        "class {}:\n",
-                        wrap(r#type, self.schema, self.options)
+                        "class {}:\n{}",
+                        wrap(r#type, self.schema, self.options),
+                        wrap(fields, self.schema, self.options)
                     )
                     .unwrap();
-                    for (key, &r#type) in fields.iter() {
-                        write!(
-                            self.body,
-                            "{}{}: {}\n",
-                            self.options.indentation,
-                            key,
-                            wrap(
-                                self.schema.arena.get(r#type).unwrap(),
-                                self.schema,
-                                self.options
-                            )
-                        )
-                        .unwrap();
-                    }
+                    // for (key, &r#type) in fields.iter() {
+                    //     write!(
+                    //         self.body,
+                    //         "{}{}: {}\n",
+                    //         self.options.indentation,
+                    //         key,
+                    //         wrap(
+                    //             self.schema.arena.get(r#type).unwrap(),
+                    //             self.schema,
+                    //             self.options
+                    //         )
+                    //     )
+                    //     .unwrap();
+                    // }
                     write!(self.body, "\n").unwrap();
                 }
                 Type::Union(Union {
@@ -92,7 +94,7 @@ impl<'a> GeneratorClosure<'a> {
                                 self.body,
                                 "{}Union = {}",
                                 wrap(r#type, self.schema, self.options),
-                                wrap(types, self.schema,self.options)
+                                wrap(types, self.schema, self.options)
                             )
                             .unwrap();
                             write!(self.body, "\n").unwrap();
@@ -266,22 +268,59 @@ impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, HashSet<ArenaIndex>, PythonData
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // NOTE: return value is a union of variants instead of a concatenated string name hints;
         //       null is discarded here
-        write!(f, "Union[")?;
+        let mut iter = multipeek(
+            self.inner
+                .iter()
+                .cloned()
+                .map(|r#type| self.schema.arena.get(r#type).unwrap())
+                .filter(|&r#type| !r#type.is_null()),
+        );
+        let _ = iter.peek(); // Discard the first
+        if iter.peek().is_some() {
+            // Regardless of possibly discarded null, there are at least two other inner types.
+            write!(f, "Union[")?;
+            while let Some(r#type) = iter.next() {
+                // manually intersperse
+                self.wrap(r#type).fmt(f)?;
+                if iter.peek().is_some() {
+                    write!(f, ", ")?;
+                }
+            }
+            write!(f, "]")
+        } else {
+            // Not a union anymore after dicarding Null
+            self.wrap(
+                iter.next()
+                    .expect("The union should have at least one inner type other than Null"),
+            )
+            .fmt(f)
+        }
+    }
+}
+
+impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, IndexMap<String, ArenaIndex>, PythonDataclasses> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // NOTE: return value are lines of field_name: field_type instead of concatenated hints;
+        // write!(f, "Union[")?;
         let mut iter = self
             .inner
             .iter()
-            .cloned()
-            .map(|r#type| self.schema.arena.get(r#type).unwrap())
-            .filter(|&r#type| !r#type.is_null())
-            .peekable();
-        while let Some(r#type) = iter.next() {
-            // manually intersperse
-            write!(f, "{}", wrap(r#type, self.schema, self.options))?;
-            if iter.peek().is_none() {
-                write!(f, ", ")?;
-            }
+            .map(|(key, &r#type)| (key, self.schema.arena.get(r#type).unwrap()));
+        // .peekable();
+        while let Some((key, r#type)) = iter.next() {
+            // // manually intersperse
+            write!(
+                f,
+                "{}{}: {}",
+                self.options.indentation,
+                key,
+                self.wrap(r#type)
+            )?;
+            // if iter.peek().is_none() {
+            write!(f, "\n")?;
+            // }
         }
-        write!(f, "]")
+        Ok(())
     }
 }
 

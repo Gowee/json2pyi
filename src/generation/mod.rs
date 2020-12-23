@@ -65,7 +65,7 @@ struct Wrapped<'i, 's, 'g, I, G: TargetGenerator> {
 
 impl<'i, 's, 'g, I, G: TargetGenerator> Wrapped<'i, 's, 'g, I, G> {
     /// Wrap another type using the schema and generator options of the current wrapper
-    fn wrap(&self, another: &'i I) -> Self {
+    fn wrap<OtherI>(&self, another: &'i OtherI) -> Wrapped<'i, 's, 'g, OtherI, G> {
         wrap(another, self.schema, self.options)
     }
 }
