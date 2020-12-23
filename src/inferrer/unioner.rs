@@ -7,7 +7,10 @@ use std::{collections::HashSet, mem};
 use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Type, Union};
 
 /// Union a sequence of `types` into a single [`Type`] in the given `arena`
-pub fn union(arena: &mut impl ITypeArena, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
+pub fn union(
+    arena: &mut impl ITypeArena,
+    types: impl IntoIterator<Item = ArenaIndex>,
+) -> ArenaIndex {
     Unioner::new(arena).union(types)
 }
 
@@ -99,7 +102,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                         maps.entry(key).or_default().push(r#type);
                     }
                     map_count += 1;
-                     // NOTE: For in-place HashSet union, `.extend` is needed instead of `.union`.
+                    // NOTE: For in-place HashSet union, `.extend` is needed instead of `.union`.
                     map_name_hints.extend(map.name_hints.into_inner());
                 }
                 Type::Array(_) => {
@@ -117,25 +120,24 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     // implementation, the ArenaIndex for Any has to be put into the union as is.
                     // See the linked-list or tree-recursion test case.
                     unioned.insert(r#type);
-                }
-                // Type::Int => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Int));
-                // }
-                // Type::Float => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Float));
-                // }
-                // Type::Bool => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Bool));
-                // }
-                // Type::String => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::String));
-                // }
-                // Type::Null => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Null));
-                // }
-                // Type::Any => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Any));
-                // }
+                } // Type::Int => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Int));
+                                                   // }
+                                                   // Type::Float => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Float));
+                                                   // }
+                                                   // Type::Bool => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Bool));
+                                                   // }
+                                                   // Type::String => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::String));
+                                                   // }
+                                                   // Type::Null => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Null));
+                                                   // }
+                                                   // Type::Any => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Any));
+                                                   // }
             }
         }
 
@@ -185,7 +187,8 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             let datetime = unioned.contains(&self.arena.get_index_of_primitive(Type::Date));
             let string = unioned.contains(&self.arena.get_index_of_primitive(Type::String));
 
-            if (uuid & datetime) | (string & (uuid ^ datetime)) { // at least two are true
+            if (uuid & datetime) | (string & (uuid ^ datetime)) {
+                // at least two are true
                 // https://stackoverflow.com/a/3090404/5488616
                 unioned.remove(&self.arena.get_index_of_primitive(Type::Date));
                 unioned.remove(&self.arena.get_index_of_primitive(Type::UUID));

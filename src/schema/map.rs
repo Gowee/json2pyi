@@ -16,7 +16,7 @@ pub struct Map {
 }
 
 impl Map {
-    /// Compare the structure of two `Map`s to determine if they are similar enough to be merged 
+    /// Compare the structure of two `Map`s to determine if they are similar enough to be merged
     pub fn is_similar_to(&self, other: &Self) -> bool {
         // TODO: take value type into consideration
         let a: HashSet<_> = self.fields.iter().map(|(name, _)| name).collect();

@@ -34,7 +34,12 @@ impl TargetGenerator for PythonDataclasses {
 }
 
 #[inline(always)]
-fn write_output(schema: &Schema, options: &PythonDataclasses, header: &mut dyn Write, body: &mut dyn Write) -> fmt::Result {
+fn write_output(
+    schema: &Schema,
+    options: &PythonDataclasses,
+    header: &mut dyn Write,
+    body: &mut dyn Write,
+) -> fmt::Result {
     let wrapper = wrap(&(), schema, options);
 
     let mut imports_from_typing = HashSet::new();
@@ -88,8 +93,7 @@ fn write_output(schema: &Schema, options: &PythonDataclasses, header: &mut dyn W
                 ref types,
             }) => {
                 let is_non_trivial = (types.len()
-                    - types.contains(&schema.arena.get_index_of_primitive(Type::Null))
-                        as usize)
+                    - types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
                     > 1;
                 if options.generate_type_alias_for_union && is_non_trivial {
                     // if is_non_trivial {
@@ -130,7 +134,6 @@ fn write_output(schema: &Schema, options: &PythonDataclasses, header: &mut dyn W
         write!(header, "from uuid import UUID\n\n")?;
     }
     Ok(())
-
 }
 
 // #[derive(Debug)]
@@ -141,7 +144,7 @@ fn write_output(schema: &Schema, options: &PythonDataclasses, header: &mut dyn W
 //     body: String,
 // }
 
-/* 
+/*
 impl<'a> GeneratorClosure<'a> {
     pub fn new(schema: &'a Schema, options: &'a PythonDataclasses) -> Self {
         GeneratorClosure {

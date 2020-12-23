@@ -8,7 +8,7 @@ use std::{
 };
 
 use super::unioner::union;
-use crate::schema::{ArenaIndex, ITypeArena, Schema, Type, TypeArena};
+use crate::schema::{Arena, ArenaIndex, ITypeArena, Schema, Type, TypeArena};
 
 /// A optimizer that merge similar `Map`s and/or same `Union`s as configured
 pub struct Optimizer {
@@ -51,7 +51,7 @@ impl Optimizer {
             }
             // drop unioner to release arena and primitive_types
         }
-
+        schema.root = arena.find_representative(schema.root).unwrap();
         arena.flatten();
 
         // // dbg!(&schema);
@@ -211,6 +211,7 @@ impl Optimizer {
                 }
             }
         }
+        schema.root = arena.find_representative(schema.root).unwrap();
         arena.flatten();
     }
 }

@@ -4,7 +4,7 @@ use super::*;
 use crate::generation::{Indentation, PythonDataclasses, TargetGenerator};
 #[test]
 fn test_jvilk_maketypes() {
-    let data = include_str!("../../tests/data/jvilk-maketypes.json");
+    let data = include_str!("../../tests/data/tree-recursion.json");
     let v: Value = serde_json::from_str(data).unwrap();
 
     let now = std::time::Instant::now();
@@ -20,18 +20,10 @@ fn test_jvilk_maketypes() {
     dbg!(&schema);
     let output = PythonDataclasses {
         generate_type_alias_for_union: false,
-        indentation: Indentation::Space(4)
+        indentation: Indentation::Space(4),
     }
     .generate(&mut schema);
-    println!(
-        "{}",
-        output
-        .header
-    );
-    println!(
-        "{}",
-        output
-        .body
-    );
+    println!("{}", output.header);
+    println!("{}", output.body);
     println!("{}", now.elapsed().as_millis());
 }

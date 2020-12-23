@@ -6,7 +6,7 @@ mod name_hints;
 mod union;
 
 pub use self::{
-    arena::{ArenaIndex, ITypeArena, TypeArena, Arena},
+    arena::{Arena, ArenaIndex, ITypeArena, TypeArena},
     map::Map,
     name_hints::NameHints,
     union::Union,
@@ -22,7 +22,8 @@ pub struct Schema {
 }
 
 #[derive(Debug, Clone)]
-pub enum Type { // TODO: doc
+pub enum Type {
+    // TODO: doc
     Map(Map),
     Array(ArenaIndex),
     Union(Union),
@@ -54,6 +55,7 @@ impl<'a> Iterator for TopdownIter<'a> {
             let r#type = arena.get(curr).unwrap();
             match *r#type {
                 Type::Map(ref map) => {
+                    dbg!(curr, r#type);
                     for (_, &r#type) in map.fields.iter().rev() {
                         if !seen.contains(&r#type) {
                             stack.push(r#type);
@@ -89,11 +91,10 @@ impl Schema {
     pub fn iter_topdown(&self) -> TopdownIter {
         // TODO: iterate in topological order by BFS
         //       which needs a predicate fn to determine whether to flat a union/map in its level
-        TopdownIter {
-            arena: &self.arena,
-            stack: vec![self.root],
-            seen: Default::default(),
-        }
+        let arena = &self.arena;
+        let stack = vec![self.root];
+        let seen = stack.iter().cloned().collect();
+        TopdownIter { arena, stack, seen }
     }
 }
 

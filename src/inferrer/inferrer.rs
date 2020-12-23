@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 // use crate::mapset_impl::Map;
 use super::union;
-use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, TypeArena, Union, NameHints};
+use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Schema, Type, TypeArena, Union};
 
 /// infer Schema from `JSONValue`
 pub fn infer(json: &JSONValue, root_name: Option<String>) -> Schema {

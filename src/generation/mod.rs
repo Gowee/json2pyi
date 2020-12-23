@@ -35,7 +35,8 @@ pub trait TargetGenerator {
         let mut header = String::new();
         let mut body = String::new();
         let mut additional = String::new();
-        self.write_output(schema, &mut header, &mut body, &mut additional).unwrap();
+        self.write_output(schema, &mut header, &mut body, &mut additional)
+            .unwrap();
         GenOutput {
             header,
             body,

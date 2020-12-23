@@ -38,7 +38,10 @@ impl TypeArena {
     }
 
     /// Get disjoint sets of similar types.
-    pub fn find_disjoint_sets<F>(&self, should_union_fn: F) -> HashMap<ArenaIndex, HashSet<ArenaIndex>>
+    pub fn find_disjoint_sets<F>(
+        &self,
+        should_union_fn: F,
+    ) -> HashMap<ArenaIndex, HashSet<ArenaIndex>>
     where
         F: Fn(&Type, &Type) -> bool,
     {
@@ -62,8 +65,7 @@ impl TypeArena {
             let typei = self.arena.get(arni).unwrap();
             let typej = self.arena.get(arnj).unwrap();
 
-            if should_union_fn(typei, typej)
-            {
+            if should_union_fn(typei, typej) {
                 Some((dsui, dsuj))
             } else {
                 None
