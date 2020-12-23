@@ -4,6 +4,11 @@ use std::collections::HashSet;
 
 use super::{arena::ArenaIndex, name_hints::NameHints};
 
+/// A collection of field names and their corresponding types, with hints for its name
+///
+/// Generally, it is inferred from [`serde_json::JSONValue::Object`]
+/// (i.e. `{ "key": "value", ... }`). It usually generated as `class` (as in Python), `struct`
+/// (as in Rust) or key-value style `interface` (as in TypeScript).
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Map {
     pub name_hints: NameHints, // FIX: IndexMap to ensure name generation is the same all the time
@@ -11,6 +16,7 @@ pub struct Map {
 }
 
 impl Map {
+    /// Compare the structure of two `Map`s to determine if they are similar enough to be merged 
     pub fn is_similar_to(&self, other: &Self) -> bool {
         // TODO: take value type into consideration
         let a: HashSet<_> = self.fields.iter().map(|(name, _)| name).collect();

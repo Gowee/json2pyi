@@ -1,17 +1,17 @@
 use indexmap::IndexMap;
-use inflector::Inflector;
-/// Infer a schema from a given JSONValue
-use serde_json::Value as JSONValue;
+// /// Infer a schema from a given JSONValue
+// use serde_json::Value as JSONValue;
 
 use std::{collections::HashSet, mem};
 
-// use crate::mapset_impl::Map;
-use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Schema, Type, TypeArena, Union};
+use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Type, Union};
 
-pub fn union(arena: &mut TypeArena, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
+/// Union a sequence of `types` into a single [`Type`] in the given `arena`
+pub fn union(arena: &mut impl ITypeArena, types: impl IntoIterator<Item = ArenaIndex>) -> ArenaIndex {
     Unioner::new(arena).union(types)
 }
 
+/// A unioner with a reference to some a arena associated
 pub struct Unioner<'a, T: ITypeArena> {
     // Unioner is pub, so it is not named UnionerClosure.
     arena: &'a mut T,
@@ -33,13 +33,15 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
         // All Maps are collected at first and then merged into one unioned Map, field by field.
         let mut maps: Option<IndexMap<String, Vec<ArenaIndex>>> = None;
         let mut map_count = 0; // Used to determine whether a field is present in all Maps.
-                               // All Arrays are collected at first. Then their inner types are unioned recursively.
-                               // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
         let mut map_name_hints = NameHints::new();
         let mut first_union: Option<ArenaIndex> = None;
         let mut union_name_hints = NameHints::new();
+        // All Arrays are collected at first. Then their inner types are unioned recursively.
+        // e.g. `int[], (int | bool)[], string[]` -> (int | bool | string)[]
         let mut arrays = vec![];
+        // TODO: keep first_array?
 
+        // Expand any nested unions. Due to borrow issues, collecting is inevitable
         let types: Vec<ArenaIndex> = types
             .into_iter()
             .flat_map(|r#type| {
@@ -47,7 +49,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                 match self
                     .arena
                     .get(r#type)
-                    .expect("It should be there during recusive inferring/unioning")
+                    .expect("The type should be present in the arena during unioning")
                 {
                     Type::Union(_) => {
                         let Union { name_hints, types } = if first_union.is_none() {
@@ -71,13 +73,10 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             .collect::<HashSet<_>>()
             .into_iter()
             .collect();
-        // dbg!(&types);
-        let tys = types.clone();
         for r#type in types {
-            dbg!(r#type, self.arena.get(r#type));
+            // dbg!(r#type, self.arena.get(r#type));
             match *self.arena.get(r#type).unwrap() {
                 Type::Map(_) => {
-                    // {// dbg!(self.arena.get(r#type).unwrap());}
                     let map;
                     if first_map.is_none() {
                         // If this is the first map in the union, just take its inner out so that
@@ -100,8 +99,8 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                         maps.entry(key).or_default().push(r#type);
                     }
                     map_count += 1;
-                    dbg!(&map.name_hints);
-                    map_name_hints.extend(map.name_hints.into_inner()); // NOTE: HashSet.union is NOT in-place.
+                     // NOTE: For in-place HashSet union, `.extend` is needed instead of `.union`.
+                    map_name_hints.extend(map.name_hints.into_inner());
                 }
                 Type::Array(_) => {
                     // TODO: FIX : in favor of?
@@ -118,32 +117,31 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     // implementation, the ArenaIndex for Any has to be put into the union as is.
                     // See the linked-list or tree-recursion test case.
                     unioned.insert(r#type);
-                } // Type::Int => {
-                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Int));
-                                                   // }
-                                                   // Type::Float => {
-                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Float));
-                                                   // }
-                                                   // Type::Bool => {
-                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Bool));
-                                                   // }
-                                                   // Type::String => {
-                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::String));
-                                                   // }
-                                                   // Type::Null => {
-                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Null));
-                                                   // }
-                                                   // Type::Any => {
-                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Any));
-                                                   // }
+                }
+                // Type::Int => {
+                //     unioned.insert(self.arena.get_index_of_primitive(Type::Int));
+                // }
+                // Type::Float => {
+                //     unioned.insert(self.arena.get_index_of_primitive(Type::Float));
+                // }
+                // Type::Bool => {
+                //     unioned.insert(self.arena.get_index_of_primitive(Type::Bool));
+                // }
+                // Type::String => {
+                //     unioned.insert(self.arena.get_index_of_primitive(Type::String));
+                // }
+                // Type::Null => {
+                //     unioned.insert(self.arena.get_index_of_primitive(Type::Null));
+                // }
+                // Type::Any => {
+                //     unioned.insert(self.arena.get_index_of_primitive(Type::Any));
+                // }
             }
         }
 
-        // let mut schemas = vec![];
-        dbg!(&first_map, &maps);
+        // dbg!(&first_map, &maps);
         if let Some(maps) = maps {
             // merge maps recursively by unioning every possible fields
-            // dbg!(&maps);
             let unioned_map: IndexMap<String, ArenaIndex> = maps
                 .into_iter()
                 .map(|(key, mut types)| {
@@ -155,7 +153,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
                     (key, self.runion(types))
                 })
                 .collect();
-            dbg!(&unioned_map);
+            // dbg!(&unioned_map);
             if unioned_map.is_empty() {
                 // every map is empty (no field at all)
                 // TODO: Any or unit type?
@@ -182,11 +180,12 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             unioned.remove(&self.arena.get_index_of_primitive(Type::Int));
         }
         {
+            // Mix of string-like types is treated as string
             let uuid = unioned.contains(&self.arena.get_index_of_primitive(Type::UUID));
             let datetime = unioned.contains(&self.arena.get_index_of_primitive(Type::Date));
             let string = unioned.contains(&self.arena.get_index_of_primitive(Type::String));
 
-            if (uuid & datetime) | (string & (uuid ^ datetime)) {
+            if (uuid & datetime) | (string & (uuid ^ datetime)) { // at least two are true
                 // https://stackoverflow.com/a/3090404/5488616
                 unioned.remove(&self.arena.get_index_of_primitive(Type::Date));
                 unioned.remove(&self.arena.get_index_of_primitive(Type::UUID));
@@ -194,27 +193,7 @@ impl<'a, T: ITypeArena> Unioner<'a, T> {
             }
         }
 
-        // if primitive_types[1] {
-        //     schemas.push(Type::Float);
-        // } else if primitive_types[0] {
-        //     // In JS(ON), int and float are both number, which implies 1.0 is serialized as 1.
-        //     // So if both int and float present in the union, just treat it as float.
-        //     schemas.push(Type::Int);
-        // }
-        // if primitive_types[2] {
-        //     schemas.push(Type::Bool);
-        // }
-        // if primitive_types[3] {
-        //     schemas.push(Type::String);
-        // }
-        // if primitive_types[4] {
-        //     schemas.push(Type::Null);
-        // }
-        // if schemas.is_empty() && primitive_types[5] {
-        //     // Any implies undetermined (e.g. [] or {}). So set it only if there are no concrete type.
-        //     schemas.push(Type::Any);
-        // }
-        dbg!(&tys, unioned.iter().collect::<Vec<_>>());
+        // dbg!(&tys, unioned.iter().collect::<Vec<_>>());
         // if first_union.is_some() {
         //     //
         //     assert!(unioned.len() > 1);

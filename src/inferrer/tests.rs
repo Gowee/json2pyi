@@ -4,16 +4,16 @@ use super::*;
 use crate::generation::{Indentation, PythonDataclasses, TargetGenerator};
 #[test]
 fn test_jvilk_maketypes() {
-    let data = include_str!("../../tests/data/quicktype.json");
+    let data = include_str!("../../tests/data/jvilk-maketypes.json");
     let v: Value = serde_json::from_str(data).unwrap();
 
     let now = std::time::Instant::now();
 
     let mut schema = infer(&v, None);
     dbg!(&schema);
-    HeuristicInferrer {
+    Optimizer {
         merging_similar_datatypes: true,
-        merging_similar_unions: true,
+        merging_same_unions: true,
     }
     .optimize(&mut schema);
     println!("{}", now.elapsed().as_millis());

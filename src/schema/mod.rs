@@ -5,15 +5,16 @@ mod map;
 mod name_hints;
 mod union;
 
-use generational_arena::Arena;
-
 pub use self::{
-    arena::{ArenaIndex, ArenaOfType, ITypeArena, TypeArena},
+    arena::{ArenaIndex, ITypeArena, TypeArena, Arena},
     map::Map,
     name_hints::NameHints,
     union::Union,
 };
 
+/// A schema inferred from a sample JSON
+///
+/// It is a wrapper around [`TypeArena`] with a additional `root` field pointing to the root type.
 #[derive(Debug)]
 pub struct Schema {
     pub arena: TypeArena,
@@ -21,7 +22,7 @@ pub struct Schema {
 }
 
 #[derive(Debug, Clone)]
-pub enum Type {
+pub enum Type { // TODO: doc
     Map(Map),
     Array(ArenaIndex),
     Union(Union),
@@ -84,6 +85,7 @@ impl<'a> Iterator for TopdownIter<'a> {
 }
 
 impl Schema {
+    /// Iterate over all types in the schema from its `root`
     pub fn iter_topdown(&self) -> TopdownIter {
         // TODO: iterate in topological order by BFS
         //       which needs a predicate fn to determine whether to flat a union/map in its level
@@ -208,106 +210,3 @@ impl Default for Type {
         Type::Any
     }
 }
-
-// impl PartialEq for Type {
-//     fn eq(&self, other: &Self) -> bool {
-//         fn canon<'a>(
-//             union: impl IntoIterator<Item = &'a Type>,
-//         ) -> (
-//             [bool; 6],
-//             Option<&'a Map<String, Type>>,
-//             Option<&'a Type>,
-//         ) {
-//             let mut primitive_types = [false; 6];
-//             let mut map = None;
-//             let mut array: Option<&Type> = None;
-
-//             for schema in union.into_iter() {
-//                 match *schema {
-//                     Type::Map(ref m) => {
-//                         if map.is_none() {
-//                             map = Some(m);
-//                         } else {
-//                             panic!("Union should not have multiple Maps inside");
-//                         }
-//                     }
-//                     Type::Array(ref a) => {
-//                         if array.is_none() {
-//                             array = Some(&*a);
-//                         } else {
-//                             panic!("Union should not have multiple Arrays inside")
-//                         }
-//                     }
-//                     Type::Union(_) => {
-//                         panic!("Union should not have Union as direct child inside")
-//                     }
-//                     Type::Int => primitive_types[0] = true,
-//                     Type::Float => primitive_types[1] = true,
-//                     Type::Bool => primitive_types[2] = true,
-//                     Type::String => primitive_types[3] = true,
-//                     Type::Null => primitive_types[4] = true,
-//                     Type::Any => primitive_types[5] = true,
-//                 }
-//             }
-//             (primitive_types, map, array)
-//         }
-
-//         match *self {
-//             Self::Map(ref self_map) => {
-//                 if let Some(other_map) = other.as_map() {
-//                     self_map == other_map
-//                 } else {
-//                     false
-//                 }
-//             }
-//             Self::Array(ref self_array) => {
-//                 if let Some(other_array) = other.as_array() {
-//                     self_array.as_ref() == other_array
-//                 } else {
-//                     false
-//                 }
-//             }
-//             Self::Union(ref self_union) => {
-//                 if let Some(other_union) = other.as_union() {
-//                     dbg!(self);
-//                     dbg!(other);
-//                     canon(self_union) == canon(other_union)
-//                 } else {
-//                     false
-//                 }
-//             }
-//             Type::Int => other.is_int(),
-//             Type::Float => other.is_float(),
-//             Type::Bool => other.is_bool(),
-//             Type::String => other.is_string(),
-//             Type::Null => other.is_null(),
-//             Type::Any => other.is_any(),
-//         }
-//     }
-// }
-
-// impl Eq for Type {}
-
-// pub trait ExpandUnion: IntoIterator<Item = Schema> {
-//     fn expand_union(self) -> impl Iterator<Item = Schema>;
-// }
-
-// impl<T: IntoIterator<Item = Schema>> T {
-//     pub fn expand_union() {}
-// }
-
-// impl From<Vec<Schema>> for Schema {
-//     fn from(vec: Vec<Schema>) -> Schema {
-
-//     }
-// }
-
-// macro_rules! impl_is_variant {
-//     ($enum:ident, $variant:ident, $name:ident) => {
-//         impl $enum {
-//             pub fn is_$name(&self) -> bool {
-//                 if let Self::$variant =
-//             }
-//         }
-//     }
-// }

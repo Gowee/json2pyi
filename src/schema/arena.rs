@@ -1,6 +1,6 @@
-use generational_arena::Arena;
+pub use generational_arena::Arena;
 pub use generational_arena::Index as ArenaIndex;
-pub type ArenaOfType = Arena<Type>;
+// pub type Arena<Type> = Arena<Type>;
 use bidirectional_map::Bimap;
 use disjoint_sets::UnionFind;
 use itertools::Itertools;
@@ -14,13 +14,13 @@ use super::Type;
 
 #[derive(Debug)]
 pub struct TypeArena {
-    arena: ArenaOfType,
+    arena: Arena<Type>,
     primitive_types: [ArenaIndex; 8],
 }
 
 impl TypeArena {
     pub fn new() -> Self {
-        let mut arena = ArenaOfType::new();
+        let mut arena = Arena::<Type>::new();
         let primitive_types = [
             arena.insert(Type::Int),
             arena.insert(Type::Float),
@@ -38,10 +38,11 @@ impl TypeArena {
     }
 
     /// Get disjoint sets of similar types.
-    pub fn find_disjoint_sets<F>(&self, criteria_fn: F) -> HashMap<ArenaIndex, HashSet<ArenaIndex>>
+    pub fn find_disjoint_sets<F>(&self, should_union_fn: F) -> HashMap<ArenaIndex, HashSet<ArenaIndex>>
     where
         F: Fn(&Type, &Type) -> bool,
     {
+        // The map between ArenaIndex and its index of type usize in the DSU
         let imap: Bimap<usize, ArenaIndex> = Bimap::from_hash_map(
             self.arena
                 .iter()
@@ -49,6 +50,7 @@ impl TypeArena {
                 .enumerate()
                 .collect(),
         );
+        // Disjoint set union
         let mut dsu = UnionFind::<usize>::new(imap.len());
         {
             let iter1 = imap.fwd().iter().map(|(&a, &b)| (a, b));
@@ -60,13 +62,7 @@ impl TypeArena {
             let typei = self.arena.get(arni).unwrap();
             let typej = self.arena.get(arnj).unwrap();
 
-            if criteria_fn(typei, typej)
-            //  typei.is_map()
-            //     && typej.is_map()
-            //     && typei
-            //         .as_map()
-            //         .unwrap()
-            //         .is_similar_to(typej.as_map().unwrap())
+            if should_union_fn(typei, typej)
             {
                 Some((dsui, dsuj))
             } else {
@@ -74,30 +70,27 @@ impl TypeArena {
             }
         })
         .for_each(|(dsui, dsuj)| {
+            // For every pair of different types in the arena, union it if should_union_fn gives true.
             dsu.union(dsui, dsuj);
         });
 
-        let mut disjoint_sets = HashMap::<ArenaIndex, HashSet<ArenaIndex>>::new(); // disjoint sets
-        for (arni, r#type) in self.arena.iter() {
-            // if r#type.is_map() {
+        // Result sets
+        // TODO: Or just return HashSet here?
+        let mut disjoint_sets = HashMap::<ArenaIndex, HashSet<ArenaIndex>>::new();
+        for (arni, _type) in self.arena.iter() {
             let r = imap
                 .get_rev(&arni)
                 .and_then(|&dsui| imap.get_fwd(&dsu.find(dsui)))
                 .cloned()
                 .unwrap();
-            // if p == indices_arena[&arni] {
             disjoint_sets.entry(r).or_default().insert(arni);
-            // }
-            // types_to_drop.insert(ari, mem::take(r#type));
-            // }
         }
-        // dbg!("ds", &disjoint_sets);
         disjoint_sets
     }
 }
 
 impl Deref for TypeArena {
-    type Target = ArenaOfType;
+    type Target = Arena<Type>;
 
     fn deref(&self) -> &Self::Target {
         &self.arena

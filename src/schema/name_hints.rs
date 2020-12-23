@@ -1,11 +1,12 @@
 use itertools::Itertools;
 
 use std::{
-    collections::{hash_set::IntoIter, HashSet},
+    collections::HashSet,
     fmt,
     ops::{Deref, DerefMut},
 };
 
+/// Name hints in [`super::Type::Map`] or [`super::Type::Union`], a wrapper around `HashSet<String>`
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct NameHints(HashSet<String>);
 

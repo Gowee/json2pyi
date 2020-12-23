@@ -16,6 +16,7 @@ use super::{wrap, GenOutput, Indentation, TargetGenerator, Wrapped};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonDataclasses {
     pub generate_type_alias_for_union: bool,
+    // pub use_pydantic_datamodel: bool,
     pub indentation: Indentation,
 }
 
