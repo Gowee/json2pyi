@@ -31,7 +31,25 @@ pub struct GenOutput {
 
 #[typetag::serde(tag = "type")]
 pub trait TargetGenerator {
-    fn generate(&self, schema: &Schema) -> GenOutput;
+    fn generate(&self, schema: &Schema) -> GenOutput {
+        let mut header = String::new();
+        let mut body = String::new();
+        let mut additional = String::new();
+        self.write_output(schema, &mut header, &mut body, &mut additional).unwrap();
+        GenOutput {
+            header,
+            body,
+            additional,
+        }
+    }
+
+    fn write_output(
+        &self,
+        schema: &Schema,
+        header: &mut dyn Write,
+        body: &mut dyn Write,
+        additional: &mut dyn Write,
+    ) -> fmt::Result;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,7 +82,7 @@ struct Wrapped<'i, 's, 'g, I, G: TargetGenerator> {
 }
 
 impl<'i, 's, 'g, I, G: TargetGenerator> Wrapped<'i, 's, 'g, I, G> {
-    /// Wrap another type using the schema and generator options of the current wrapper
+    /// Wrap another type using the schema and the generator options of the current wrapper
     fn wrap<OtherI>(&self, another: &'i OtherI) -> Wrapped<'i, 's, 'g, OtherI, G> {
         wrap(another, self.schema, self.options)
     }

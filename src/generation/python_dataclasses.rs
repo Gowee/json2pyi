@@ -21,25 +21,126 @@ pub struct PythonDataclasses {
 
 #[typetag::serde]
 impl TargetGenerator for PythonDataclasses {
-    fn generate(&self, schema: &Schema) -> GenOutput {
-        let closure = GeneratorClosure::new(schema, self);
-
-        closure.run()
+    fn write_output(
+        &self,
+        schema: &Schema,
+        header: &mut dyn Write,
+        body: &mut dyn Write,
+        _additional: &mut dyn Write,
+    ) -> fmt::Result {
+        write_output(schema, self, header, body)
     }
 }
 
-// pub fn schema_to_dataclasses(schema: &mut Schema) -> String {
-//     DataclassesGeneratorClosure::new(schema).generate()
-// }
+#[inline(always)]
+fn write_output(schema: &Schema, options: &PythonDataclasses, header: &mut dyn Write, body: &mut dyn Write) -> fmt::Result {
+    let wrapper = wrap(&(), schema, options);
 
-#[derive(Debug)]
-pub struct GeneratorClosure<'a> {
-    schema: &'a Schema,
-    options: &'a PythonDataclasses,
-    header: String,
-    body: String,
+    let mut imports_from_typing = HashSet::new();
+    let mut import_dataclasses = false;
+    let mut import_datetime = false;
+    let mut import_uuid = false;
+
+    for r#type in schema.iter_topdown() {
+        match *r#type {
+            Type::Map(Map {
+                ref name_hints,
+                ref fields,
+            }) => {
+                import_dataclasses = true;
+                fields
+                    .iter()
+                    .map(|(_, &r#type)| schema.arena.get(r#type).unwrap())
+                    .for_each(|r#type| match *r#type {
+                        Type::Any => {
+                            imports_from_typing.insert("Any");
+                        }
+                        Type::Date => import_datetime = true,
+                        Type::UUID => import_uuid = true,
+                        _ => {}
+                    });
+
+                write!(
+                    body,
+                    "@dataclass\nclass {}:\n{}",
+                    wrapper.wrap(r#type),
+                    wrapper.wrap(fields)
+                )?;
+                // for (key, &r#type) in fields.iter() {
+                //     write!(
+                //         self.body,
+                //         "{}{}: {}\n",
+                //         self.options.indentation,
+                //         key,
+                //         wrap(
+                //             self.schema.arena.get(r#type).unwrap(),
+                //             self.schema,
+                //             self.options
+                //         )
+                //     )
+                //     .unwrap();
+                // }
+                write!(body, "\n")?;
+            }
+            Type::Union(Union {
+                ref name_hints,
+                ref types,
+            }) => {
+                let is_non_trivial = (types.len()
+                    - types.contains(&schema.arena.get_index_of_primitive(Type::Null))
+                        as usize)
+                    > 1;
+                if options.generate_type_alias_for_union && is_non_trivial {
+                    // if is_non_trivial {
+                    imports_from_typing.insert("Union");
+                    write!(
+                        body,
+                        "{}Union = {}",
+                        wrapper.wrap(r#type),
+                        wrapper.wrap(types)
+                    )?;
+                    write!(body, "\n")?;
+                    // }
+                }
+                imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
+            }
+            Type::Array(_) => {
+                imports_from_typing.insert("List");
+            }
+            _ => {}
+        }
+    }
+    if import_dataclasses {
+        write!(header, "from dataclasses import dataclass\n\n")?;
+    }
+    if !imports_from_typing.is_empty() {
+        write!(header, "from typing import ")?;
+        imports_from_typing
+            .into_iter()
+            .intersperse(", ")
+            .map(|e| write!(header, "{}", e))
+            .collect::<fmt::Result>()?;
+        write!(header, "\n\n")?;
+    }
+    if import_datetime {
+        write!(header, "from datatime import datetime\n\n")?;
+    }
+    if import_uuid {
+        write!(header, "from uuid import UUID\n\n")?;
+    }
+    Ok(())
+
 }
 
+// #[derive(Debug)]
+// pub struct GeneratorClosure<'a> {
+//     schema: &'a Schema,
+//     options: &'a PythonDataclasses,
+//     header: String,
+//     body: String,
+// }
+
+/* 
 impl<'a> GeneratorClosure<'a> {
     pub fn new(schema: &'a Schema, options: &'a PythonDataclasses) -> Self {
         GeneratorClosure {
@@ -60,101 +161,6 @@ impl<'a> GeneratorClosure<'a> {
     }
 
     fn write_output(&mut self) -> fmt::Result {
-        let wrapper = wrap(&(), self.schema, self.options);
-
-        let mut imports_from_typing = HashSet::new();
-        let mut import_dataclasses = false;
-        let mut import_datetime = false;
-        let mut import_uuid = false;
-
-        for r#type in self.schema.iter_topdown() {
-            match *r#type {
-                Type::Map(Map {
-                    ref name_hints,
-                    ref fields,
-                }) => {
-                    import_dataclasses = true;
-                    fields
-                        .iter()
-                        .map(|(_, &r#type)| self.schema.arena.get(r#type).unwrap())
-                        .for_each(|r#type| match *r#type {
-                            Type::Any => {
-                                imports_from_typing.insert("Any");
-                            }
-                            Type::Date => import_datetime = true,
-                            Type::UUID => import_uuid = true,
-                            _ => {}
-                        });
-
-                    write!(
-                        self.body,
-                        "@dataclass\nclass {}:\n{}",
-                        wrapper.wrap(r#type),
-                        wrapper.wrap(fields)
-                    )?;
-                    // for (key, &r#type) in fields.iter() {
-                    //     write!(
-                    //         self.body,
-                    //         "{}{}: {}\n",
-                    //         self.options.indentation,
-                    //         key,
-                    //         wrap(
-                    //             self.schema.arena.get(r#type).unwrap(),
-                    //             self.schema,
-                    //             self.options
-                    //         )
-                    //     )
-                    //     .unwrap();
-                    // }
-                    write!(self.body, "\n")?;
-                }
-                Type::Union(Union {
-                    ref name_hints,
-                    ref types,
-                }) => {
-                    let is_non_trivial = (types.len()
-                        - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
-                            as usize)
-                        > 1;
-                    if self.options.generate_type_alias_for_union && is_non_trivial {
-                        // if is_non_trivial {
-                        imports_from_typing.insert("Union");
-                        write!(
-                            self.body,
-                            "{}Union = {}",
-                            wrapper.wrap(r#type),
-                            wrapper.wrap(types)
-                        )?;
-                        write!(self.body, "\n")?;
-                        // }
-                    }
-                    imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
-                }
-                Type::Array(_) => {
-                    imports_from_typing.insert("List");
-                }
-                _ => {}
-            }
-        }
-        if import_dataclasses {
-            write!(self.header, "from dataclasses import dataclass\n\n")?;
-        }
-        if !imports_from_typing.is_empty() {
-            write!(self.header, "from typing import ")?;
-            imports_from_typing
-                .into_iter()
-                .intersperse(", ")
-                .map(|e| write!(self.header, "{}", e))
-                .collect::<fmt::Result>()?;
-            write!(self.header, "\n\n")?;
-        }
-        if import_datetime {
-            write!(self.header, "from datatime import datetime\n\n")?;
-        }
-        if import_uuid {
-            write!(self.header, "from uuid import UUID\n\n")?;
-        }
-        Ok(())
     }
 
     // pub fn get_type_name_by_index(&self, i: ArenaIndex) -> Option<String> {
@@ -247,6 +253,7 @@ impl<'a> GeneratorClosure<'a> {
     // }
     // }
 }
+*/
 
 impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, Type, PythonDataclasses> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
