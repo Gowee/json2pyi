@@ -51,19 +51,47 @@ impl<'a> GeneratorClosure<'a> {
     }
 
     pub fn run(mut self) -> GenOutput {
+        self.write_output().unwrap();
+        GenOutput {
+            header: self.header,
+            body: self.body,
+            additional: String::new()
+        }
+    }
+
+    fn write_output(&mut self) -> fmt::Result {
+        let wrapper = wrap(&(), self.schema, self.options);
+
+        let mut imports_from_typing = HashSet::new();
+        let mut import_dataclasses = false;
+        let mut import_datetime = false;
+        let mut import_uuid = false;
+
         for r#type in self.schema.iter_topdown() {
             match *r#type {
                 Type::Map(Map {
                     ref name_hints,
                     ref fields,
                 }) => {
+                    import_dataclasses = true;
+                    fields
+                        .iter()
+                        .map(|(_, &r#type)| self.schema.arena.get(r#type).unwrap())
+                        .for_each(|r#type| match *r#type {
+                            Type::Any => {
+                                imports_from_typing.insert("Any");
+                            }
+                            Type::Date => import_datetime = true,
+                            Type::UUID => import_uuid = true,
+                            _ => {}
+                        });
+
                     write!(
                         self.body,
-                        "class {}:\n{}",
-                        wrap(r#type, self.schema, self.options),
-                        wrap(fields, self.schema, self.options)
-                    )
-                    .unwrap();
+                        "@dataclass\nclass {}:\n{}",
+                        wrapper.wrap(r#type),
+                        wrapper.wrap(fields)
+                    )?;
                     // for (key, &r#type) in fields.iter() {
                     //     write!(
                     //         self.body,
@@ -78,37 +106,55 @@ impl<'a> GeneratorClosure<'a> {
                     //     )
                     //     .unwrap();
                     // }
-                    write!(self.body, "\n").unwrap();
+                    write!(self.body, "\n")?;
                 }
                 Type::Union(Union {
                     ref name_hints,
                     ref types,
                 }) => {
-                    if self.options.generate_type_alias_for_union {
-                        let is_non_trivial = (types.len()
-                            - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
-                                as usize)
-                            > 1;
-                        if is_non_trivial {
-                            write!(
-                                self.body,
-                                "{}Union = {}",
-                                wrap(r#type, self.schema, self.options),
-                                wrap(types, self.schema, self.options)
-                            )
-                            .unwrap();
-                            write!(self.body, "\n").unwrap();
-                        }
+                    let is_non_trivial = (types.len()
+                        - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
+                            as usize)
+                        > 1;
+                    if self.options.generate_type_alias_for_union && is_non_trivial {
+                        // if is_non_trivial {
+                        imports_from_typing.insert("Union");
+                        write!(
+                            self.body,
+                            "{}Union = {}",
+                            wrapper.wrap(r#type),
+                            wrapper.wrap(types)
+                        )?;
+                        write!(self.body, "\n")?;
+                        // }
                     }
+                    imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
+                }
+                Type::Array(_) => {
+                    imports_from_typing.insert("List");
                 }
                 _ => {}
             }
         }
-        GenOutput {
-            header: self.header,
-            body: self.body,
-            additional: String::new(),
+        if import_dataclasses {
+            write!(self.header, "from dataclasses import dataclass\n\n")?;
         }
+        if !imports_from_typing.is_empty() {
+            write!(self.header, "from typing import ")?;
+            imports_from_typing
+                .into_iter()
+                .intersperse(", ")
+                .map(|e| write!(self.header, "{}", e))
+                .collect::<fmt::Result>()?;
+            write!(self.header, "\n\n")?;
+        }
+        if import_datetime {
+            write!(self.header, "from datatime import datetime\n\n")?;
+        }
+        if import_uuid {
+            write!(self.header, "from uuid import UUID\n\n")?;
+        }
+        Ok(())
     }
 
     // pub fn get_type_name_by_index(&self, i: ArenaIndex) -> Option<String> {
@@ -236,7 +282,7 @@ impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, Type, PythonDataclasses> {
                 } else {
                     let optional =
                         types.contains(&self.schema.arena.get_index_of_primitive(Type::Null));
-                    let union = wrap(types, self.schema, self.options);
+                    let union = self.wrap(types);
                     if optional {
                         write!(f, "Optional[{}]", union)
                     } else {
