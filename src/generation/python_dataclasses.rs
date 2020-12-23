@@ -51,7 +51,8 @@ fn write_output(
         match *r#type {
             Type::Map(Map {
                 /* ref name_hints, */
-                ref fields, ..
+                ref fields,
+                ..
             }) => {
                 import_dataclasses = true;
                 fields
@@ -76,7 +77,8 @@ fn write_output(
             }
             Type::Union(Union {
                 /* ref name_hints, */
-                ref types, ..
+                ref types,
+                ..
             }) => {
                 let is_non_trivial = (types.len()
                     - types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
@@ -85,7 +87,7 @@ fn write_output(
                     imports_from_typing.insert("Union");
                     write!(
                         body,
-                        "{}Union = {}",
+                        "{} = {}",
                         wrapper.wrap(r#type),
                         wrapper.wrap(types)
                     )?;

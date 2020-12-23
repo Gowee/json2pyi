@@ -5,8 +5,6 @@ use iso8601::datetime as parse_iso8601_datetime;
 use serde_json::Value as JSONValue;
 use uuid::Uuid;
 
-
-
 // use crate::mapset_impl::Map;
 use super::union;
 use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Schema, Type, TypeArena};
