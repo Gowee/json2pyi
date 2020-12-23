@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use inflector::Inflector;
+
 use itertools::{multipeek, Itertools};
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +11,7 @@ use std::{
 // use crate::mapset_impl::Map;
 use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, Union};
 
-use super::{wrap, GenOutput, Indentation, TargetGenerator, Wrapped};
+use super::{wrap, Indentation, TargetGenerator, Wrapped};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonDataclasses {
@@ -50,8 +50,8 @@ fn write_output(
     for r#type in schema.iter_topdown() {
         match *r#type {
             Type::Map(Map {
-                ref name_hints,
-                ref fields,
+                /* ref name_hints, */
+                ref fields, ..
             }) => {
                 import_dataclasses = true;
                 fields
@@ -72,31 +72,16 @@ fn write_output(
                     wrapper.wrap(r#type),
                     wrapper.wrap(fields)
                 )?;
-                // for (key, &r#type) in fields.iter() {
-                //     write!(
-                //         self.body,
-                //         "{}{}: {}\n",
-                //         self.options.indentation,
-                //         key,
-                //         wrap(
-                //             self.schema.arena.get(r#type).unwrap(),
-                //             self.schema,
-                //             self.options
-                //         )
-                //     )
-                //     .unwrap();
-                // }
                 write!(body, "\n")?;
             }
             Type::Union(Union {
-                ref name_hints,
-                ref types,
+                /* ref name_hints, */
+                ref types, ..
             }) => {
                 let is_non_trivial = (types.len()
                     - types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
                     > 1;
                 if options.generate_type_alias_for_union && is_non_trivial {
-                    // if is_non_trivial {
                     imports_from_typing.insert("Union");
                     write!(
                         body,
@@ -105,7 +90,6 @@ fn write_output(
                         wrapper.wrap(types)
                     )?;
                     write!(body, "\n")?;
-                    // }
                 }
                 imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
             }
@@ -136,129 +120,6 @@ fn write_output(
     Ok(())
 }
 
-// #[derive(Debug)]
-// pub struct GeneratorClosure<'a> {
-//     schema: &'a Schema,
-//     options: &'a PythonDataclasses,
-//     header: String,
-//     body: String,
-// }
-
-/*
-impl<'a> GeneratorClosure<'a> {
-    pub fn new(schema: &'a Schema, options: &'a PythonDataclasses) -> Self {
-        GeneratorClosure {
-            schema,
-            options,
-            header: String::new(),
-            body: String::new(),
-        }
-    }
-
-    pub fn run(mut self) -> GenOutput {
-        self.write_output().unwrap();
-        GenOutput {
-            header: self.header,
-            body: self.body,
-            additional: String::new()
-        }
-    }
-
-    fn write_output(&mut self) -> fmt::Result {
-    }
-
-    // pub fn get_type_name_by_index(&self, i: ArenaIndex) -> Option<String> {
-    //     self.schema
-    //         .arena
-    //         .get(i)
-    //         .map(|r#type| self.get_type_name(r#type))
-    // }
-
-    // pub fn get_type_name(&self, r#type: &Type) -> String {
-    //     // match self.schema.arena.
-    //     match *r#type {
-    //         Type::Map(Map {
-    //             ref name_hints,
-    //             fields: _,
-    //         }) => name_hints.iter().join("Or"),
-    //         Type::Union(Union {
-    //             ref name_hints,
-    //             ref types,
-    //         }) => {
-    //             // name_hints.iter().join("Or")
-    //             // FIX: the below line will panic as typeref in unions are not updated after optimizing so far
-    //             if self.options.generate_type_alias_for_union && {
-    //                 let is_non_trivial = (types.len()
-    //                     - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
-    //                         as usize)
-    //                     > 1;
-    //                 is_non_trivial
-    //             } {
-    //                 name_hints.iter().join("Or")
-    //             } else {
-    //                 let mut optional = false;
-    //                 let inner = types
-    //                     .iter()
-    //                     .cloned()
-    //                     .map(|r#type| self.schema.arena.get(r#type).unwrap())
-    //                     .filter(|&r#type| {
-    //                         if r#type.is_null() {
-    //                             optional = true;
-    //                             false
-    //                         } else {
-    //                             true
-    //                         }
-    //                     })
-    //                     .map(|r#type| self.get_type_name(r#type))
-    //                     .join(", ");
-    //                 if optional {
-    //                     format!("Optional[{}]", inner)
-    //                 } else {
-    //                     inner
-    //                 }
-    //             }
-    //         }
-    //         Type::Array(r#type) => {
-    //             dbg!(r#type);
-    //             format!("List[{}]", self.get_type_name_by_index(r#type).unwrap())
-    //         }
-    //         Type::Int => String::from("int"),
-    //         Type::Float => String::from("float"),
-    //         Type::Bool => String::from("bool"),
-    //         Type::String => String::from("str"),
-    //         Type::Date => String::from("datetime"),
-    //         Type::UUID => String::from("UUID"),
-    //         Type::Null => String::from("None"),
-    //         Type::Any => String::from("Any"),
-    //     }
-    // }
-
-    // pub fn get_union_as_variants(&self, union: &Union) -> String {
-    // let mut optional = false;
-    // let types =
-    // let inner = types
-    //     .iter()
-    //     .cloned()
-    //     .map(|r#type| self.schema.arena.get(r#type).unwrap())
-    //     .filter(|&r#type| {
-    //         if r#type.is_null() {
-    //             optional = true;
-    //             false
-    //         } else {
-    //             true
-    //         }
-    //     })
-    //     .map(|r#type| self.get_type_name(r#type))
-    //     .join(", ");
-    // if optional {
-    //     format!("Optional[{}]", inner)
-    // } else {
-    //     inner
-    // }
-    // }
-}
-*/
-
 impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, Type, PythonDataclasses> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
@@ -276,8 +137,6 @@ impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, Type, PythonDataclasses> {
                 ref name_hints,
                 ref types,
             }) => {
-                // name_hints.iter().join("Or")
-                // FIX: the below line will panic as typeref in unions are not updated after optimizing so far
                 if self.options.generate_type_alias_for_union && {
                     let is_non_trivial = (types.len()
                         - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
@@ -380,95 +239,6 @@ impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, IndexMap<String, ArenaIndex>, P
         Ok(())
     }
 }
-
-// impl Schema {
-//     pub fn to_dataclasses(&self) -> String {
-//         unimplemented!();
-// let named_schemas: Vec<(&str, Map<String, Schema>)>  = vec![];
-// let mut stack: Vec<&Schema> = vec![self];
-// let mut output = vec![];
-
-//         fn traverse(
-//             schema: &Type,
-//             outer_name: Option<String>,
-//             output: &mut Vec<String>,
-//         ) -> String {
-//             // dbg!(schema, &outer_name);
-//             match &schema {
-//                 Type::Map(ref map) => {
-//                     let class_name = String::from(outer_name.unwrap_or(String::from(ROOT_NAME))); // TODO: convert case and suffix
-//                     // dbg!(&class_name);
-//                     let fields: Vec<String> = map
-//                         .iter()
-//                         .map(|(key, schema)| {
-//                             let type_name = if schema.is_array() {
-//                                 if &key.to_singular() == key && &key.to_plural() != key{
-//                                     format!("{}Item", key.to_pascal_case())
-//                                 } else {
-//                                     key.to_pascal_case()
-//                                 }
-//                             } else {
-//                                 key.to_pascal_case()
-//                             };
-//                             format!("{} = {}", key, traverse(schema, Some(type_name), output))
-//                         })
-//                         .collect();
-//                     output.push(format!(
-//                         "\
-// @dataclass
-// class {}:
-//     {}",
-//                         class_name,
-//                         fields.join("\n    ")
-//                     ));
-//                     String::from(class_name)
-//                 }
-//                 Type::Array(ref array) => {
-//                     format!("List[{}]", traverse(array, outer_name, output))
-//                 }
-//                 Type::Union(ref union) => {
-//                     let mut optional = false;
-//                     let t = union
-//                         .iter()
-//                         .filter(|schema| {
-//                             if schema.is_null() {
-//                                 optional = true;
-//                                 false
-//                             } else {
-//                                 true
-//                             }
-//                         })
-//                         .map(|schema| traverse(schema, outer_name.clone(), output))
-//                         .join(" | ");
-//                     if t.is_empty() {
-//                         if optional {
-//                             String::from("None")
-//                         } else {
-//                             panic!("Union should not be empty") // empty union
-//                         }
-//                     } else {
-//                         format!("Optional[{}]", t)
-//                     }
-//                 }
-//                 Type::Int => String::from("int"),
-//                 Type::Float => String::from("float"),
-//                 Type::Bool => String::from("bool"),
-//                 Type::String => String::from("str"),
-//                 // TODO: treat `* | null` as `Optional[*]`
-//                 Type::Null => String::from("None"), // unreachable!()
-//                 Type::Any => String::from("Any"),
-//             }
-//         }
-
-//         // while let Some(&schema) = stack.last() {
-//         //     match schema
-//         // }
-
-//         traverse(self, Some(String::from(root_name)), &mut output);
-
-//         output.join("\n\n")
-//     }
-// }
 
 // #[cfg(test)]
 // mod tests {

@@ -5,11 +5,11 @@ use iso8601::datetime as parse_iso8601_datetime;
 use serde_json::Value as JSONValue;
 use uuid::Uuid;
 
-use std::collections::HashSet;
+
 
 // use crate::mapset_impl::Map;
 use super::union;
-use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Schema, Type, TypeArena, Union};
+use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Schema, Type, TypeArena};
 
 /// infer Schema from `JSONValue`
 pub fn infer(json: &JSONValue, root_name: Option<String>) -> Schema {
