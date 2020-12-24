@@ -6,28 +6,28 @@ use serde_json::Value as JSONValue;
 use uuid::Uuid;
 
 // use crate::mapset_impl::Map;
-use super::union;
+use super::unioner::union;
 use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Schema, Type, TypeArena};
 
-/// infer Schema from `JSONValue`
+/// Infer a `Schema` from a `JSONValue`
 pub fn infer(json: &JSONValue, root_name: Option<String>) -> Schema {
-    BasicInferrerClosure::new().infer(json, root_name)
+    BasicInferrerClosure::new().run(json, root_name)
 }
 
 // struct SchemaInferer {/* ... */}
 
 /// An closure for the inferrer to work
-pub struct BasicInferrerClosure {
+struct BasicInferrerClosure {
     arena: TypeArena,
 }
 
 impl BasicInferrerClosure {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let arena = TypeArena::new();
         BasicInferrerClosure { arena }
     }
 
-    pub fn infer(mut self, json: &JSONValue, root_name: Option<String>) -> Schema {
+    fn run(mut self, json: &JSONValue, root_name: Option<String>) -> Schema {
         let root = self.rinfer(json, root_name);
 
         let arena = self.arena;
@@ -97,30 +97,6 @@ impl BasicInferrerClosure {
         }
     }
 }
-
-// pub fn infer(json: &JSONValue) -> Type {
-//     match *json {
-//         JSONValue::Null => Type::Null,
-//         JSONValue::Bool(_) => Type::Bool,
-//         JSONValue::Number(ref number) => {
-//             if number.is_f64() {
-//                 Type::Float
-//             } else {
-//                 Type::Int
-//             }
-//         }
-//         JSONValue::String(_) => Type::String,
-//         JSONValue::Array(ref array) => {
-//             let inner = union(array.into_iter().map(|value| infer(value)));
-//             Type::Array(Box::new(inner))
-//         }
-//         JSONValue::Object(ref map) => Type::Map(
-//             map.iter()
-//                 .map(|(key, value)| (key.to_owned(), infer(value)))
-//                 .collect(),
-//         ),
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

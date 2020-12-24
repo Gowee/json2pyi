@@ -1,9 +1,9 @@
-mod inferrer;
-mod optimizer;
-#[cfg(test)]
-mod tests;
+mod adhoc;
+mod heuristic;
 mod unioner;
 
-pub use inferrer::*;
-pub use optimizer::*;
-pub use unioner::*;
+pub use adhoc::infer;
+pub use heuristic::Optimizer;
+
+#[cfg(test)]
+mod tests;
