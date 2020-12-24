@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Display, Write};
 
-use crate::schema::{ArenaIndex, Map, Schema, Type, Union};
+use crate::schema::Schema;
 
 mod python_dataclasses;
 pub use python_dataclasses::PythonDataclasses;

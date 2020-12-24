@@ -4,10 +4,9 @@ use super::*;
 use crate::generation::{Indentation, PythonDataclasses, TargetGenerator};
 #[test]
 fn test_quicktype() {
-    let data = include_str!("../../tests/data/quicktype.json");
+    let data = include_str!("../../tests/data/same-union.json");
     let now = std::time::Instant::now();
     let v: Value = serde_json::from_str(data).unwrap();
-
 
     println!("{}", now.elapsed().as_millis());
     let mut schema = infer(&v, None);
@@ -21,7 +20,7 @@ fn test_quicktype() {
     println!("{}", now.elapsed().as_millis());
     dbg!(&schema);
     let output = PythonDataclasses {
-        generate_type_alias_for_union: false,
+        generate_type_alias_for_union: true,
         indentation: Indentation::Space(4),
     }
     .generate(&mut schema);

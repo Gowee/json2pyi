@@ -18,46 +18,46 @@ pub struct Optimizer {
 
 impl Optimizer {
     pub fn optimize(&self, schema: &mut Schema) {
-        self.merge_similar_maps(schema);
-        self.merge_same_union(schema);
-    }
-
-    pub fn merge_similar_maps(&self, schema: &mut Schema) {
-        let maps_sets = schema.arena.find_disjoint_sets(|a, b| {
+        // Note: Merging maps and unions at the same time may have produced results different from
+        // seperate merging (find map sets - merge - flatten - find union sets - merge - flatten).
+        // For simplicity, just take the first way.
+        let sets = schema.arena.find_disjoint_sets(|a, b| {
             if let (Some(a), Some(b)) = (a.as_map(), b.as_map()) {
-                a.is_similar_to(b)
-            // } else if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
-            //     a.types == b.types
+                self.merging_similar_datatypes && a.is_similar_to(b)
+            } else if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
+                self.merging_same_unions && (a.types == b.types)
             } else {
+                // TODO: merge same array
                 false
             }
         });
-        let mut arena = TypeArenaWithDSU::from_type_arena(&mut schema.arena);
-        {
-            for (leader, mut set) in maps_sets.into_iter() {
-                if Some(true) == arena.get(leader).map(|r#type| r#type.is_map()) {
-                    set.insert(leader); // leader in disjoint set is now a follower
+        let mut ufarena = TypeArenaWithDSU::from_type_arena(&mut schema.arena);
+        for (leader, mut set) in sets.into_iter() {
+            if ufarena.get(leader).map(|r#type| {
+                (self.merging_similar_datatypes && r#type.is_map())
+                    || (self.merging_same_unions && r#type.is_union())
+            }) == Some(true)
+            {
+                set.insert(leader); // leader in disjoint set is now a follower
 
-                    let compact_set = set
-                        .iter()
-                        .cloned()
-                        .filter(|&r#type| arena.contains(r#type))
-                        .collect::<Vec<ArenaIndex>>();
-                    // unioned is now the new leader
-                    let _leader = union(&mut arena, compact_set);
-                    // References to non-representative AreneIndex will be replaced automatically
-                    // when TypeArenaWithDSU is dropped
-                }
+                let compact_set = set
+                    .iter()
+                    .cloned()
+                    .filter(|&r#type| ufarena.contains(r#type))
+                    .collect::<Vec<ArenaIndex>>();
+                // unioned is now the new leader
+                let _leader = union(&mut ufarena, compact_set);
+                // References to non-representative AreneIndex will be replaced automatically
+                // when TypeArenaWithDSU is dropped
             }
-            // drop unioner to release arena and primitive_types
         }
         // Although unioner always keeps the first map slot intact, there is no guarantee that
         // root would always be the first map in types to be unioned. So update it if necessary.
-        schema.root = arena.find_representative(schema.root).unwrap();
+        schema.root = ufarena.find_representative(schema.root).unwrap();
         // arena.flatten();
     }
 
-    pub fn merge_same_union(&self, schema: &mut Schema) {
+    /* pub fn merge_same_union(&self, schema: &mut Schema) {
         let unions_sets = schema.arena.find_disjoint_sets(|a, b| {
             if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
                 a.types == b.types
@@ -94,18 +94,25 @@ impl Optimizer {
         schema.root = arena.find_representative(schema.root).unwrap();
         // arena.flatten();
     }
+    */
 }
 
+/// A wrapper around `&mut TypeArena` with a Disjoint Set Union. `get` and `get_mut` are wrapped
+/// with DSU find to be DSU-aware. `remove_in_favor_of` is wrapped with DSU union.
+///
+/// Upon dropping, all references to non-representative types are replaced according to the DSU.
 #[derive(Debug)]
 pub struct TypeArenaWithDSU<'a> {
+    /// The inner arena
     arena: &'a mut TypeArena,
+    /// The Disjoint Set Union structure
     dsu: UnionFind<usize>,
+    /// The map from DSU index to ArenaIndex
     imap: Bimap<usize, ArenaIndex>,
 }
 
 impl<'a> TypeArenaWithDSU<'a> {
     fn from_type_arena(arena: &'a mut TypeArena) -> Self {
-        // map from DSU index to ArenaIndex
         let imap: Bimap<usize, ArenaIndex> =
             Bimap::from_hash_map(arena.iter().map(|(index, _)| index).enumerate().collect());
 
@@ -113,7 +120,8 @@ impl<'a> TypeArenaWithDSU<'a> {
         TypeArenaWithDSU { arena, dsu, imap }
     }
 
-    /// Find a representative `Type`, that is the leader of the disjoint set to which `arni` belongs
+    /// Find the index of the representative `Type` which is the leader of the disjoint set to
+    /// which `arni` belongs
     fn find_representative(&self, arni: ArenaIndex) -> Option<ArenaIndex> {
         self.imap
             .get_rev(&arni)
@@ -125,9 +133,11 @@ impl<'a> TypeArenaWithDSU<'a> {
     /// representative one in the DSU. This method is invoked automatically upon dropping to ensure
     /// the released `TypeArena` has all its references consistent.
     fn flatten(&mut self) {
-        // dbg!(&self);
         let mut dangling_types = HashSet::new();
 
+        // There might be new types which internally references to non-representative and hence
+        // non-existing types. They also need updating. So just iterate over the whole arena
+        // instead of just imap which contains no newly inserted types.
         // let arnis: Vec<ArenaIndex> = self.imap.iter().map(|(_, &arni)| arni).collect();
         let arnis: Vec<ArenaIndex> = self.arena.iter().map(|(arni, _)| arni).collect();
 
@@ -137,61 +147,33 @@ impl<'a> TypeArenaWithDSU<'a> {
             let arnr = self.find_representative(arni);
             if arnr.is_some() && arnr.unwrap() != arni {
                 // If it is not a new type (already in the DSU before) and it is non-representative.
-                // TODO: shoule replace inner type references in a representative type? // FIX
+                //// TODO: shoule replace inner type references in a representative type? // FIX
                 dangling_types.insert(arni);
             }
-            // Unions might be removed during unioning. So if a representative type is not
-            // there anymore, just ignore it for now.
+            //// Unions might be removed during unioning. So if a representative type is not
+            //// there anymore, just ignore it for now.
             if let Some(r#type) = self.get_mut(arni) {
                 if r#type.is_map() {
                     // Take the map out and put it back to circumvent borrow rule limitation
                     let mut map = mem::take(r#type).into_map().unwrap();
                     for (_, r#type) in map.fields.iter_mut() {
-                        // If this field in in DSU, then replace it with the leader in the DS.
+                        // If this field is in DSU, then replace it with the leader in the DS.
                         if let Some(arnr) = self.find_representative(*r#type) {
                             *r#type = arnr;
                         }
                         // O.W., it might be new a type during unioning, requiring no action.
                     }
                     *self.get_mut(arni).unwrap() = Type::Map(map);
-                // let r = arena.find_representative(arni).unwrap();
-                // if p == indices_arena[&arni] {
-                // disjoint_sets
-                //     .entry(r)
-                //     .or_default()
-                //     .insert(arni);
-                // }
-                // types_to_drop.insert(ari, mem::take(r#type));
                 } else if r#type.is_union() {
                     let mut union = mem::take(r#type).into_union().unwrap();
-                    // dbg!(&union);
                     union.types = union
                         .types
                         .into_iter()
                         .map(|arni| self.find_representative(arni).unwrap_or(arni))
                         .collect();
-                    // dbg!(&union);
                     *self.get_mut(arni).unwrap() = Type::Union(union);
-                // let mut union = mem::take(r#type).into_union().unwrap();
-                // *self.get_mut(arni).unwrap() = Type::Union(
-                //     union
-                //         .types
-                //         .into_iter()
-                //         .map(|r#type| self.find_representative(r#type).unwrap()),
-                // );
                 } else if r#type.is_array() {
                     let inner = mem::take(r#type).into_array().unwrap();
-                    if self.get_mut(arni).is_none() {
-                        unreachable!();
-                    }
-                    // if self.find_representative(inner).is_none() {
-                    //     panic!("{:?} {:?} {:?}", arni, arnr, self.get(inner));
-                    //     // continue;
-                    // }
-                    // dbg!(inner);
-                    // dbg!(self.find_representative(inner));
-                    // dbg!(arni);
-                    // dbg!(self.get_mut(arni));
                     *self.get_mut(arni).unwrap() =
                         Type::Array(self.find_representative(inner).unwrap_or(inner));
                 }
@@ -256,7 +238,6 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
 
     /// Remove the type denoted by the index i and union i into j in the DSU
     fn remove_in_favor_of(&mut self, i: ArenaIndex, j: ArenaIndex) -> Option<Type> {
-        // dbg!("rifo", i, j);
         self.dsu.union(
             *self.imap.get_rev(&i).unwrap(),
             *self.imap.get_rev(&j).unwrap(),

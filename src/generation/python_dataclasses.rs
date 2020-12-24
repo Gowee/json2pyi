@@ -85,12 +85,7 @@ fn write_output(
                     > 1;
                 if options.generate_type_alias_for_union && is_non_trivial {
                     imports_from_typing.insert("Union");
-                    write!(
-                        body,
-                        "{} = {}",
-                        wrapper.wrap(r#type),
-                        wrapper.wrap(types)
-                    )?;
+                    write!(body, "{} = {}", wrapper.wrap(r#type), wrapper.wrap(types))?;
                     write!(body, "\n")?;
                 }
                 imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
