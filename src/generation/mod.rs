@@ -4,8 +4,8 @@ use std::fmt::{self, Display, Write};
 
 use crate::schema::Schema;
 
-mod python_dataclasses;
-pub use python_dataclasses::PythonDataclasses;
+mod python;
+pub use python::{Python, Kind as PythonKind};
 
 // pub use dataclasses::*;
 
@@ -29,7 +29,7 @@ pub struct GenOutput {
 //     fn generate();
 // }
 
-#[typetag::serde(tag = "type")]
+#[typetag::serde(tag = "target")]
 pub trait TargetGenerator {
     fn generate(&self, schema: &Schema) -> GenOutput {
         let mut header = String::new();

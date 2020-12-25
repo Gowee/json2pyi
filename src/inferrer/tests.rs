@@ -1,10 +1,10 @@
 use serde_json::Value;
 
 use super::*;
-use crate::generation::{Indentation, PythonDataclasses, TargetGenerator};
+use crate::generation::{Indentation, Python, PythonKind, TargetGenerator};
 #[test]
 fn test_quicktype() {
-    let data = include_str!("../../tests/data/same-union.json");
+    let data = include_str!("../../tests/data/tree-recursion.json");
     let now = std::time::Instant::now();
     let v: Value = serde_json::from_str(data).unwrap();
 
@@ -19,7 +19,8 @@ fn test_quicktype() {
     .optimize(&mut schema);
     println!("{}", now.elapsed().as_millis());
     dbg!(&schema);
-    let output = PythonDataclasses {
+    let output = Python {
+        kind: PythonKind::Dataclass,
         generate_type_alias_for_union: true,
         indentation: Indentation::Space(4),
     }
@@ -40,7 +41,8 @@ fn test_githubstatus() {
         merging_same_unions: true,
     }
     .optimize(&mut schema);
-    let _output = PythonDataclasses {
+    let _output = Python {
+        kind: PythonKind::Dataclass,
         generate_type_alias_for_union: false,
         indentation: Indentation::Space(4),
     }
@@ -58,7 +60,8 @@ fn test_tree_recursion() {
         merging_same_unions: true,
     }
     .optimize(&mut schema);
-    let _output = PythonDataclasses {
+    let _output = Python {
+        kind: PythonKind::Dataclass,
         generate_type_alias_for_union: false,
         indentation: Indentation::Space(4),
     }

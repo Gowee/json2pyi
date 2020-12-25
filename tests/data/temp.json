@@ -16,5 +16,15 @@
         }
       ]
     }
-  ]
+  ],
+  "root": {
+    "has_error": true,
+    "errors": {
+      "system": {
+        "message": "access_denied",
+        "code": 1508
+      }
+    },
+    "error": "invalid_grant"
+  }
 }

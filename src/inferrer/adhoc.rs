@@ -11,20 +11,20 @@ use crate::schema::{ArenaIndex, ITypeArena, Map, NameHints, Schema, Type, TypeAr
 
 /// Infer a `Schema` from a `JSONValue`
 pub fn infer(json: &JSONValue, root_name: Option<String>) -> Schema {
-    BasicInferrerClosure::new().run(json, root_name)
+    InferrerClosure::new().run(json, root_name)
 }
 
 // struct SchemaInferer {/* ... */}
 
 /// An closure for the inferrer to work
-struct BasicInferrerClosure {
+struct InferrerClosure {
     arena: TypeArena,
 }
 
-impl BasicInferrerClosure {
+impl InferrerClosure {
     fn new() -> Self {
         let arena = TypeArena::new();
-        BasicInferrerClosure { arena }
+        InferrerClosure { arena }
     }
 
     fn run(mut self, json: &JSONValue, root_name: Option<String>) -> Schema {
