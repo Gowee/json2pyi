@@ -62,7 +62,7 @@ fn write_output(
     body: &mut dyn Write,
     additional: &mut dyn Write,
 ) -> fmt::Result {
-    let wrapper = wrap(&(), schema, options); // helper
+    let wrapper = wrap((), schema, options); // helper
 
     let decorators = match options.kind {
         Kind::Dataclass | Kind::PydanticDataclass => "@dataclass\n",
@@ -148,12 +148,7 @@ fn write_output(
     }
 
     if options.kind == Kind::NestedTypedDict {
-        // write!(
-        //     body,
-        //     "{}",
-        //     wrapper.wrap(schema.arena.get(schema.root).unwrap())
-        // )?;
-        todo!();
+        write!(body, "{}", wrapper.wrap(()))?;
     }
 
     if import_base_class_or_class_decorators {
@@ -188,7 +183,7 @@ fn write_output(
     Ok(())
 }
 
-impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, (), Python> {
+impl<'s, 'g> Display for Wrapped<'s, 'g, (), Python> {
     /// Generate [`Kind::NestedTypedDict`]
     ///
     /// Nested TypedDict requires special handling when recursion, resulting in its incompatibility
@@ -198,58 +193,113 @@ impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, (), Python> {
             schema, options, ..
         } = self;
         assert!(options.kind == Kind::NestedTypedDict);
+        // NOTE: This special seperated implmenetation of NestedTypedDict is meant for solving
+        //       recursive type definition in Schema, that is, some sub-type in the tree of schema
+        //       that references to the other type defined in its upper level, such as the one in
+        ///      tree-recursion.json .
+        //       But it turns out there is unsolvable problem: if a sub-type in the tree of schema
+        //       references to non-root type, the generated type definition would be invalid.
+        impl Wrapped<'_, '_, &'_ mut HashSet<ArenaIndex>, Python> {
+            fn write_ntd(&mut self, f: &mut fmt::Formatter, curr: ArenaIndex) -> fmt::Result {
+                // let Wrapped {
+                //     inner: seen,
+                //     schema,
+                //     options,
+                // } = self;
+                // let (mut f, mut seen) = inner;
+                let r#type = self.schema.arena.get(curr).unwrap();
+                match *r#type {
+                    Type::Map(Map {
+                        ref name_hints,
+                        ref fields,
+                    }) => {
+                        dbg!(r#type);
+                        if self.inner.contains(&curr) {
+                            self.wrap(r#type).fmt(f)?;
+                        } else {
+                            self.inner.insert(curr);
+                            // write!(f, r#"TypedDict("{}", {})"#, name_hints, self.wrap(fields))?;
 
-        let mut stack = vec![schema.root];
-        let mut seen: HashSet<ArenaIndex> = stack.iter().cloned().collect();
-        while let Some(curr) = stack.pop() {
-            let r#type = schema.arena.get(curr).unwrap();
-            match *r#type {
-                Type::Map(Map{ref name_hints, ref fields}) => {
-                    if seen.contains(&curr) {
-                        self.wrap(r#type).fmt(f)?;
+                            let mut is_total = true;
+                            write!(f, r#"TypedDict("{}", {{"#, self.wrap(r#type))?;
+                            let mut iter = fields.iter().peekable();
+                            // manually intersperse
+                            while let Some((key, &next)) = iter.next() {
+                                let r#type = self.schema.arena.get(next).unwrap();
+                                if let Type::Union(Union { ref types, .. }) = *r#type {
+                                    if types.contains(
+                                        &self.schema.arena.get_index_of_primitive(Type::Null),
+                                    ) {
+                                        is_total = false;
+                                    }
+                                }
+                                write!(f, r#""{}": "#, key,)?;
+                                self.write_ntd(f, next)?;
+                                if iter.peek().is_some() {
+                                    write!(f, ", ")?;
+                                }
+                            }
+                            write!(f, "}}")?;
+                            if !is_total {
+                                write!(f, r#", total=False"#)?;
+                            }
+                            write!(f, ")")?;
+                        }
                     }
-                    else {
-                        seen.insert(curr);
-                        write!(
-                            f,
-                            r#"TypedDict("{}", {})"#,
-                            name_hints,
-                            self.wrap(fields),
-                        )?;
+                    Type::Union(Union {
+                        ref name_hints,
+                        ref types,
+                    }) => {
+                        let optional =
+                            types.contains(&self.schema.arena.get_index_of_primitive(Type::Null));
+                        // if optional {
+                        //     write!(f, "Optional[")?;
+                        // } else {
+                        //     union.fmt(f)?;
+                        // }
+                        write!(f, "Union[")?;
+                        // TODO: optional
+                        let mut iter = types.iter().peekable();
+                            // manually intersperse
+                        while let Some(&next) = iter.next() {
+                            self.write_ntd(f, next)?;
+                            if iter.peek().is_some() {
+                                write!(f, " | ")?;
+                            }
+                        }
+                        write!(f, "]")?;
                     }
-                    for (_, &r#type) in fields.iter().rev() {
-                        stack.push(r#type);
+                    Type::Array(inner) => {
+                        write!(f, "List[")?;
+                        self.write_ntd(f, inner)?;
+                        write!(f, "]")?;
                     }
+                    _ => wrap(r#type, self.schema, self.options).fmt(f)?,
                 }
-                _ => self.wrap(r#type).fmt(f)?
+                Ok(())
             }
         }
+
+        let mut seen = HashSet::<ArenaIndex>::new();
+        // seen.insert(self.schema.root);
+        self.wrap(&mut seen).write_ntd(f, self.schema.root)?;
         Ok(())
     }
 }
 
-impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, Type, Python> {
+impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i Type, Python> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
             Type::Map(Map {
                 ref name_hints,
-                ref fields,
+                ..
+                // ref fields,
             }) => {
                 // TODO: eliminate unnecessary heap allocation
-                let type_name = if name_hints.is_empty() {
-                    format!("UnnammedType{:X}", self.inner as *const Type as usize)
+                if name_hints.is_empty() {
+                    write!(f, "UnnammedType{:X}", self.inner as *const Type as usize)
                 } else {
-                    name_hints.to_string()
-                };
-                if self.options.kind == Kind::NestedTypedDict {
-                    write!(
-                        f,
-                        r#"TypedDict("{type_name}", {fields_and_totality})"#,
-                        type_name = type_name,
-                        fields_and_totality = self.wrap(fields),
-                    )
-                } else {
-                    write!(f, "{}", type_name)
+                    write!(f, "{}", name_hints)
                 }
             }
             Type::Union(Union {
@@ -299,7 +349,7 @@ impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, Type, Python> {
     }
 }
 
-impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, HashSet<ArenaIndex>, Python> {
+impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i HashSet<ArenaIndex>, Python> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // NOTE: return value is a union of variants instead of a concatenated string name hints;
         //       null is discarded here
@@ -333,7 +383,7 @@ impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, HashSet<ArenaIndex>, Python> {
     }
 }
 
-impl<'i, 's, 'g> Display for Wrapped<'i, 's, 'g, IndexMap<String, ArenaIndex>, Python> {
+impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i IndexMap<String, ArenaIndex>, Python> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.options.kind {
             Kind::TypedDict | Kind::NestedTypedDict => {

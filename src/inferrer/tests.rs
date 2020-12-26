@@ -4,7 +4,7 @@ use super::*;
 use crate::generation::{Indentation, Python, PythonKind, TargetGenerator};
 #[test]
 fn test_quicktype() {
-    let data = include_str!("../../tests/data/tree-recursion.json");
+    let data = include_str!("../../tests/data/quicktype.json");
     let now = std::time::Instant::now();
     let v: Value = serde_json::from_str(data).unwrap();
 
@@ -20,8 +20,8 @@ fn test_quicktype() {
     println!("{}", now.elapsed().as_millis());
     dbg!(&schema);
     let output = Python {
-        kind: PythonKind::Dataclass,
-        generate_type_alias_for_union: true,
+        kind: PythonKind::NestedTypedDict,
+        generate_type_alias_for_union: false,
         indentation: Indentation::Space(4),
     }
     .generate(&mut schema);

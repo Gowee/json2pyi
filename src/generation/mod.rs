@@ -76,25 +76,25 @@ impl Display for Indentation {
 }
 
 /// A helper type that facilitate taking advantage of [`Display`](std::fmt::Display)
-struct Wrapped<'i, 's, 'g, I, G: TargetGenerator> {
-    inner: &'i I,
+struct Wrapped<'s, 'g, I, G: TargetGenerator> {
+    inner: I,
     schema: &'s Schema,
     options: &'g G,
 }
 
-impl<'i, 's, 'g, I, G: TargetGenerator> Wrapped<'i, 's, 'g, I, G> {
+impl<'s, 'g, I, G: TargetGenerator> Wrapped<'s, 'g, I, G> {
     /// Wrap another type using the schema and the generator options of the current wrapper
-    fn wrap<OtherI>(&self, another: &'i OtherI) -> Wrapped<'i, 's, 'g, OtherI, G> {
+    fn wrap<OtherI>(&self, another: OtherI) -> Wrapped<'s, 'g, OtherI, G> {
         wrap(another, self.schema, self.options)
     }
 }
 
 /// Create and return a new [`WrappedType`]
-fn wrap<'i, 's, 'g, I, G: TargetGenerator>(
-    inner: &'i I,
+fn wrap<'s, 'g, I, G: TargetGenerator>(
+    inner: I,
     schema: &'s Schema,
     options: &'g G,
-) -> Wrapped<'i, 's, 'g, I, G> {
+) -> Wrapped<'s, 'g, I, G> {
     Wrapped {
         inner,
         schema,
