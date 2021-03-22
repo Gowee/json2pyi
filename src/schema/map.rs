@@ -1,8 +1,9 @@
 use indexmap::IndexMap;
 
 use std::collections::HashSet;
+use std::fmt::{self, Display};
 
-use super::{arena::ArenaIndex, name_hints::NameHints};
+use super::{arena::ArenaIndex, name_hints::NameHints, Type};
 
 /// A collection of field names and their corresponding types, with hints for its name
 ///
@@ -30,5 +31,16 @@ impl Map {
 
         // https://en.wikipedia.org/wiki/Tversky_index
         tversky_index > 0.8
+    }
+}
+
+impl Display for Map {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.name_hints.is_empty() {
+            // NOTE: the type wrapper of map should be stored in Arena for persistent memory address.
+            write!(f, "UnnammedType{:X}", self as *const Map as usize)
+        } else {
+            self.name_hints.fmt(f)
+        }
     }
 }

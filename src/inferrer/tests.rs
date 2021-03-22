@@ -1,10 +1,10 @@
 use serde_json::Value;
 
 use super::*;
-use crate::generation::{Indentation, Python, PythonKind, TargetGenerator};
+use crate::generation::{Indentation, PythonClass, PythonKind, PythonTypedDict, TargetGenerator, Quote};
 #[test]
 fn test_quicktype() {
-    let data = include_str!("../../tests/data/quicktype.json");
+    let data = include_str!("../../tests/data/cross-reference.json");
     let now = std::time::Instant::now();
     let v: Value = serde_json::from_str(data).unwrap();
 
@@ -19,10 +19,10 @@ fn test_quicktype() {
     .optimize(&mut schema);
     println!("{}", now.elapsed().as_millis());
     dbg!(&schema);
-    let output = Python {
-        kind: PythonKind::NestedTypedDict,
-        generate_type_alias_for_union: false,
-        indentation: Indentation::Space(4),
+    let output = PythonTypedDict {
+        quote_type: Quote::Double,
+        nesting_when_possible: true,
+        mark_optional_as_not_total: false
     }
     .generate(&mut schema);
     println!("{}", output.header);
@@ -41,7 +41,7 @@ fn test_githubstatus() {
         merging_same_unions: true,
     }
     .optimize(&mut schema);
-    let _output = Python {
+    let _output = PythonClass {
         kind: PythonKind::Dataclass,
         generate_type_alias_for_union: false,
         indentation: Indentation::Space(4),
@@ -60,7 +60,7 @@ fn test_tree_recursion() {
         merging_same_unions: true,
     }
     .optimize(&mut schema);
-    let _output = Python {
+    let _output = PythonClass {
         kind: PythonKind::Dataclass,
         generate_type_alias_for_union: false,
         indentation: Indentation::Space(4),

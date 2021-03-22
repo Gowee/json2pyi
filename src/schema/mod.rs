@@ -1,3 +1,5 @@
+use indexmap::IndexSet;
+
 use std::collections::HashSet;
 
 mod arena;
@@ -44,7 +46,7 @@ pub struct TopdownIter<'a> {
 }
 
 impl<'a> Iterator for TopdownIter<'a> {
-    type Item = &'a Type;
+    type Item = ArenaIndex;
     fn next(&mut self) -> Option<Self::Item> {
         let Self {
             arena,
@@ -52,34 +54,31 @@ impl<'a> Iterator for TopdownIter<'a> {
             ref mut seen,
         } = self;
         if let Some(curr) = stack.pop() {
+            let mut pick = |r#type: ArenaIndex| {
+                if !seen.contains(&r#type) {
+                    stack.push(r#type);
+                    seen.insert(r#type);
+                }
+            };
             let r#type = arena.get(curr).unwrap();
             match *r#type {
                 Type::Map(ref map) => {
                     dbg!(curr, r#type);
                     for (_, &r#type) in map.fields.iter().rev() {
-                        if !seen.contains(&r#type) {
-                            stack.push(r#type);
-                            seen.insert(r#type);
-                        }
+                        pick(r#type);
                     }
                 }
                 Type::Array(inner) => {
-                    if !seen.contains(&inner) {
-                        stack.push(inner);
-                        seen.insert(inner);
-                    }
+                    pick(inner);
                 }
                 Type::Union(ref union) => {
                     for &r#type in union.types.iter() {
-                        if !seen.contains(&r#type) {
-                            stack.push(r#type);
-                            seen.insert(r#type);
-                        }
+                        pick(r#type);
                     }
                 }
                 _ => (),
             }
-            Some(r#type)
+            Some(curr)
         } else {
             None
         }
@@ -95,6 +94,46 @@ impl Schema {
         let stack = vec![self.root];
         let seen = stack.iter().cloned().collect();
         TopdownIter { arena, stack, seen }
+    }
+
+    /// Get arena indices of all types that appears more than one time in the schema tree. The root
+    /// type is included anyway.
+    pub fn get_dominant(&self) -> IndexSet<ArenaIndex> {
+        let mut stack = vec![self.root];
+        let mut seen = HashSet::<ArenaIndex>::new();
+        let mut dominant = IndexSet::<ArenaIndex>::new();
+        dominant.insert(self.root);
+
+        while let Some(curr) = stack.pop() {
+            let mut pick = |r#type: ArenaIndex| {
+                if seen.contains(&r#type) {
+                    dominant.insert(r#type);
+                }
+                else {
+                    stack.push(r#type);
+                    seen.insert(r#type);
+                }
+            };
+            let r#type = self.arena.get(curr).unwrap();
+            match *r#type {
+                Type::Map(ref map) => {
+                    for (_, &r#type) in map.fields.iter().rev() {
+                        pick(r#type);
+                    }
+                }
+                Type::Array(inner) => {
+                    pick(inner);
+                }
+                Type::Union(ref union) => {
+                    for &r#type in union.types.iter() {
+                        pick(r#type);
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        dominant
     }
 }
 

@@ -4,8 +4,11 @@ use std::fmt::{self, Display, Write};
 
 use crate::schema::Schema;
 
-mod python;
-pub use python::{Python, Kind as PythonKind};
+mod python_class;
+pub use python_class::{Kind as PythonKind, PythonClass};
+// mod rust;
+mod python_inline;
+pub use python_inline::PythonTypedDict;
 
 // pub use dataclasses::*;
 
@@ -72,6 +75,22 @@ impl Display for Indentation {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Quote {
+    Single,
+    Double,
+}
+
+impl Display for Quote {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Quote::Single => r#"'"#,
+            Quote::Double => r#"""#,
+        }
+        .fmt(f)
     }
 }
 
