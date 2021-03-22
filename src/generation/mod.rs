@@ -95,28 +95,25 @@ impl Display for Quote {
 }
 
 /// A helper type that facilitate taking advantage of [`Display`](std::fmt::Display)
-struct Wrapped<'s, 'g, I, G: TargetGenerator> {
+struct Contexted<I, C: Copy> {
     inner: I,
-    schema: &'s Schema,
-    options: &'g G,
+    context: C,
 }
 
-impl<'s, 'g, I, G: TargetGenerator> Wrapped<'s, 'g, I, G> {
+impl<I, C: Copy> Contexted<I, C> {
     /// Wrap another type using the schema and the generator options of the current wrapper
-    fn wrap<OtherI>(&self, another: OtherI) -> Wrapped<'s, 'g, OtherI, G> {
-        wrap(another, self.schema, self.options)
+    fn wrap<OtherI>(&self, another: OtherI) -> Contexted<OtherI, C> {
+        withContext(another, self.context)
     }
 }
 
 /// Create and return a new [`WrappedType`]
-fn wrap<'s, 'g, I, G: TargetGenerator>(
-    inner: I,
-    schema: &'s Schema,
-    options: &'g G,
-) -> Wrapped<'s, 'g, I, G> {
-    Wrapped {
-        inner,
-        schema,
-        options,
-    }
+fn withContext<I, C: Copy>(inner: I, context: C) -> Contexted<I, C> {
+    Contexted { inner, context }
 }
+
+// trait IContext<C> {
+//     fn with<I>(self, inner: I) -> Contexted<I, Self> {
+//         withContext(inner, self)
+//     }
+// }

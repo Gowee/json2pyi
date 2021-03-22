@@ -4,7 +4,7 @@ use super::*;
 use crate::generation::{Indentation, PythonClass, PythonKind, PythonTypedDict, TargetGenerator, Quote};
 #[test]
 fn test_quicktype() {
-    let data = include_str!("../../tests/data/cross-reference.json");
+    let data = include_str!("../../tests/data/tree-recursion.json");
     let now = std::time::Instant::now();
     let v: Value = serde_json::from_str(data).unwrap();
 

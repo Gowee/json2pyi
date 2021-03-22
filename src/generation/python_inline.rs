@@ -1,6 +1,6 @@
+use indexmap::IndexSet;
 use itertools::{multipeek, Itertools};
 use serde::{Deserialize, Serialize};
-use indexmap::IndexSet;
 
 use std::{
     collections::HashSet,
@@ -10,17 +10,23 @@ use std::{
 
 use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, Union};
 
-use super::{wrap, Indentation, TargetGenerator, Wrapped, Quote};
+use super::{withContext, Contexted, Indentation, Quote, TargetGenerator};
 
+#[derive(Clone, Copy, Debug)] // Or just use &Context as a context
+struct Context<'c>(
+    &'c Schema,
+    &'c PythonTypedDict,
+    &'c IndexSet<ArenaIndex>,
+    &'c HashSet<ArenaIndex>,
+);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonTypedDict {
     pub quote_type: Quote,
     // pub generate_type_alias_for_union: bool,
     pub nesting_when_possible: bool,
-    pub mark_optional_as_not_total: bool
+    pub mark_optional_as_not_total: bool,
 }
-
 
 #[typetag::serde]
 impl TargetGenerator for PythonTypedDict {
@@ -43,15 +49,16 @@ fn write_output(
     body: &mut dyn Write,
     additional: &mut dyn Write,
 ) -> fmt::Result {
-    let wrapper = wrap((), schema, options); // helper
-
     let mut imports_from_typing = HashSet::new();
     let mut import_base_class_or_class_decorators = false;
     let mut import_datetime = false;
     let mut import_uuid = false;
 
     let dominant = schema.get_dominant();
-    // let mut referenceable = HashSet::<ArenaIndex>::new();
+
+    // let wrapper = withContext((), (schema, options, &dominant)); // helper
+
+    let mut referenceable = HashSet::<ArenaIndex>::new();
     // panic!("{:?}", dominant.iter().map(|&arni| schema.arena.get(arni).unwrap()).collect::<Vec<_>>());
 
     for arni in dominant.iter().cloned().rev() {
@@ -59,8 +66,13 @@ fn write_output(
 
         if let Some(map) = r#type.as_map() {
             dbg!(r#type);
-            write!(body, "{} = {}\n\n", map, wrapper.wrap((map, &dominant)))?;
-            // referenceable.insert(arni);
+            write!(
+                body,
+                "{} = {}\n\n",
+                map,
+                withContext(map, Context(schema, options, &dominant, &referenceable))
+            )?;
+            referenceable.insert(arni);
         }
     }
     for arni in schema.iter_topdown() {
@@ -136,11 +148,14 @@ fn write_output(
     //     write!(body, "{}", wrapper.wrap(()))?;
     // }
 
-    if import_base_class_or_class_decorators {
-        write!(header, "{}\n\n", "from typing import TypedDict")?;
-    }
     if !imports_from_typing.is_empty() {
         write!(header, "from typing import ")?;
+        if import_base_class_or_class_decorators {
+            write!(header, "TypedDict")?;
+            if !imports_from_typing.is_empty() {
+                write!(header, ", ")?;
+            }
+        }
         imports_from_typing
             .into_iter()
             .intersperse(", ")
@@ -157,14 +172,11 @@ fn write_output(
     Ok(())
 }
 
-impl<'i, 's, 'g> Display
-    for Wrapped<'s, 'g, (ArenaIndex, &'i IndexSet<ArenaIndex>), PythonTypedDict>
-{
+impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let &Wrapped {
-            inner: (arni, dominant),
-            schema,
-            options,
+        let &Contexted {
+            inner: arni,
+            context: Context(schema, options, dominant, referenceable),
         } = self;
 
         let r#type = schema.arena.get(arni).unwrap();
@@ -172,13 +184,17 @@ impl<'i, 's, 'g> Display
         match *r#type {
             Type::Map(ref map) => {
                 if dominant.contains(&arni) {
-                    map.fmt(f)
+                    if referenceable.contains(&arni) {
+                        map.fmt(f)
+                    } else {
+                        write!(f, r#"{}{}{}"#, options.quote_type, map, options.quote_type)
+                    }
                 } else {
-                    self.wrap((map, dominant)).fmt(f)
+                    self.wrap(map).fmt(f)
                 }
             }
             Type::Union(ref union) => {
-                self.wrap((union, dominant)).fmt(f)
+                self.wrap(union).fmt(f)
                 // let optional =
                 //     types.contains(&self.schema.arena.get_index_of_primitive(Type::Null));
                 // let union = self.wrap(types);
@@ -190,7 +206,7 @@ impl<'i, 's, 'g> Display
                 // }
             }
             Type::Array(inner) => {
-                write!(f, "List[{}]", self.wrap((inner, dominant)))
+                write!(f, "List[{}]", self.wrap(inner))
             }
             Type::Int => write!(f, "int"),
             Type::Float => write!(f, "float"),
@@ -204,15 +220,12 @@ impl<'i, 's, 'g> Display
     }
 }
 
-impl<'i, 's, 'g> Display
-    for Wrapped<'s, 'g, (&'i Union, &'i IndexSet<ArenaIndex>), PythonTypedDict>
-{
+impl<'i, 'c> Display for Contexted<&'i Union, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Wrapped {
-            inner: (union, dominant),
-            schema,
-            options,
-        } = *self;
+        let &Contexted {
+            inner: union,
+            context: Context(schema, options, dominant, referenceable),
+        } = self;
         let Union {
             ref name_hints,
             ref types,
@@ -220,7 +233,11 @@ impl<'i, 's, 'g> Display
         let the_null = schema.arena.get_index_of_primitive(Type::Null);
         let optional = types.contains(&the_null);
         // let mut iter = multipeek(types.iter().cloned().filter(|&arni| arni != the_null));
-        let mut iter = types.iter().cloned().filter(|&arni| arni != the_null).peekable();
+        let mut iter = types
+            .iter()
+            .cloned()
+            .filter(|&arni| arni != the_null)
+            .peekable();
 
         if optional {
             write!(f, "Optional[")?;
@@ -230,7 +247,7 @@ impl<'i, 's, 'g> Display
             // Regardless of a possible null, there are at least two other inner types.
             while let Some(arni) = iter.next() {
                 // manually intersperse
-                self.wrap((arni, dominant)).fmt(f)?;
+                self.wrap(arni).fmt(f)?;
                 if iter.peek().is_some() {
                     write!(f, ", ")?;
                 }
@@ -238,11 +255,10 @@ impl<'i, 's, 'g> Display
             write!(f, "]")?;
         } else {
             // Not a union anymore after dicarding Null
-            self.wrap((
+            self.wrap(
                 iter.next()
                     .expect("The union should have at least one inner type other than Null"),
-                dominant,
-            ))
+            )
             .fmt(f)?;
         }
         if optional {
@@ -252,33 +268,45 @@ impl<'i, 's, 'g> Display
     }
 }
 
-impl<'i, 's, 'g> Display for Wrapped<'s, 'g, (&'i Map, &'i IndexSet<ArenaIndex>), PythonTypedDict> {
+impl<'i, 'c> Display for Contexted<&'i Map, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let &Wrapped {
-            inner: (map, dominant),
-            schema,
-            options,
+        let &Contexted {
+            inner: map,
+            context: Context(schema, options, dominant, referenceable),
         } = self;
         let mut is_total = true;
-        write!(f, "TypedDict({}{}{}, {{", options.quote_type, map, options.quote_type)?;
+        write!(
+            f,
+            "TypedDict({}{}{}, {{",
+            options.quote_type, map, options.quote_type
+        )?;
         let mut iter = map.fields.iter().map(|(key, &arni)| (key, arni)).peekable();
 
         // manually intersperse
         while let Some((key, arni)) = iter.next() {
             let r#type = schema.arena.get(arni).unwrap();
             if let Type::Union(Union { ref types, .. }) = *r#type {
-                if options.mark_optional_as_not_total && types.contains(&schema.arena.get_index_of_primitive(Type::Null)) {
+                if options.mark_optional_as_not_total
+                    && types.contains(&schema.arena.get_index_of_primitive(Type::Null))
+                {
                     is_total = false;
                 }
             }
-            write!(f, "{}{}{}: {}", options.quote_type, key, options.quote_type, self.wrap((arni, dominant)))?;
+            write!(
+                f,
+                "{}{}{}: {}",
+                options.quote_type,
+                key,
+                options.quote_type,
+                self.wrap(arni)
+            )?;
             if iter.peek().is_some() {
                 write!(f, ", ")?;
             }
         }
         write!(f, "}}")?;
         if !is_total {
-            // NOTE: optional is for a field, but totality is only for its parental type 
+            // NOTE: optional is for a field, but totality is only for its parental type
             write!(f, ", total=False")?;
         }
         write!(f, ")")?;

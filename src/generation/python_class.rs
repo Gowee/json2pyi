@@ -10,7 +10,10 @@ use std::{
     unimplemented,
 };
 
-use super::{wrap, Indentation, TargetGenerator, Wrapped};
+use super::{withContext, Contexted, Indentation, TargetGenerator};
+
+#[derive(Clone, Copy, Debug)]
+struct Context<'c>(&'c Schema, &'c PythonClass);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonClass {
@@ -24,7 +27,7 @@ pub struct PythonClass {
 /// Sub-target for Python type definitions generator
 pub enum Kind {
     /// Use `dataclass` from built-in `dataclasses` module as the decorator
-    Dataclass, 
+    Dataclass,
     /// Use `dataclass` from built-in `dataclasses` module as the decorator, additionally
     /// decorating with the external library `dataclass-json` for JSON (de)serilization support
     DataclassWithJSON,
@@ -62,7 +65,7 @@ fn write_output(
     body: &mut dyn Write,
     additional: &mut dyn Write,
 ) -> fmt::Result {
-    let wrapper = wrap((), schema, options); // helper
+    let wrapper = withContext((), Context(schema, options)); // helper
 
     let decorators = match options.kind {
         Kind::Dataclass | Kind::PydanticDataclass => "@dataclass\n",
@@ -80,7 +83,10 @@ fn write_output(
     let mut import_datetime = false;
     let mut import_uuid = false;
 
-    for r#type in schema.iter_topdown().map(|arni|schema.arena.get(arni).unwrap()) {
+    for r#type in schema
+        .iter_topdown()
+        .map(|arni| schema.arena.get(arni).unwrap())
+    {
         match *r#type {
             Type::Map(Map {
                 /* ref name_hints, */
@@ -287,8 +293,12 @@ fn write_output(
 //     }
 // }
 
-impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i Type, PythonClass> {
+impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let &Contexted {
+            inner: r#type,
+            context: Context(schema, options),
+        } = self;
         match self.inner {
             Type::Map(Map {
                 ref name_hints,
@@ -306,21 +316,21 @@ impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i Type, PythonClass> {
                 ref name_hints,
                 ref types,
             }) => {
-                if self.options.generate_type_alias_for_union && {
+                if options.generate_type_alias_for_union && {
                     let is_non_trivial = (types.len()
-                        - types.contains(&self.schema.arena.get_index_of_primitive(Type::Null))
+                        - types.contains(&schema.arena.get_index_of_primitive(Type::Null))
                             as usize)
                         > 1;
                     is_non_trivial
                 } {
                     if name_hints.is_empty() {
-                        write!(f, "UnnammedUnion{:X}", self.inner as *const Type as usize)
+                        write!(f, "UnnammedUnion{:X}", r#type as *const Type as usize)
                     } else {
                         write!(f, "{}Union", name_hints)
                     }
                 } else {
                     let optional =
-                        types.contains(&self.schema.arena.get_index_of_primitive(Type::Null));
+                        types.contains(&schema.arena.get_index_of_primitive(Type::Null));
                     let union = self.wrap(types);
                     if optional {
                         write!(f, "Optional[{}]", union)
@@ -334,7 +344,7 @@ impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i Type, PythonClass> {
                 write!(
                     f,
                     "List[{}]",
-                    self.wrap(self.schema.arena.get(*r#type).unwrap())
+                    self.wrap(schema.arena.get(*r#type).unwrap())
                 )
             }
             Type::Int => write!(f, "int"),
@@ -349,15 +359,19 @@ impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i Type, PythonClass> {
     }
 }
 
-impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i HashSet<ArenaIndex>, PythonClass> {
+impl<'i, 'c> Display for Contexted<&'c HashSet<ArenaIndex>, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let &Contexted {
+            inner: arnis,
+            context: Context(schema, options),
+        } = self;
         // NOTE: return value is a union of variants instead of a concatenated string name hints;
         //       null is discarded here
         let mut iter = multipeek(
-            self.inner
+            arnis
                 .iter()
                 .cloned()
-                .map(|r#type| self.schema.arena.get(r#type).unwrap())
+                .map(|r#type| schema.arena.get(r#type).unwrap())
                 .filter(|&r#type| !r#type.is_null()),
         );
         let _ = iter.peek(); // Discard the first
@@ -383,22 +397,25 @@ impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i HashSet<ArenaIndex>, PythonClas
     }
 }
 
-impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i IndexMap<String, ArenaIndex>, PythonClass> {
+impl<'i, 'c> Display for Contexted<&'c IndexMap<String, ArenaIndex>, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.options.kind {
+        let &Contexted {
+            inner: fields,
+            context: Context(schema, options),
+        } = self;
+        match options.kind {
             Kind::TypedDict /* | Kind::NestedTypedDict */ => {
                 // NOTE: return value are TS-interface-like dict with possible trailing totality
                 let mut is_total = true;
                 write!(f, "{{")?;
-                let mut iter = self
-                    .inner
+                let mut iter = fields
                     .iter()
-                    .map(|(key, &r#type)| (key, self.schema.arena.get(r#type).unwrap()))
+                    .map(|(key, &r#type)| (key, schema.arena.get(r#type).unwrap()))
                     .peekable();
                 // manually intersperse
                 while let Some((key, r#type)) = iter.next() {
                     if let Type::Union(Union { ref types, .. }) = *r#type {
-                        if types.contains(&self.schema.arena.get_index_of_primitive(Type::Null)) {
+                        if types.contains(&schema.arena.get_index_of_primitive(Type::Null)) {
                             is_total = false;
                         }
                     }
@@ -417,14 +434,14 @@ impl<'i, 's, 'g> Display for Wrapped<'s, 'g, &'i IndexMap<String, ArenaIndex>, P
                 let mut iter = self
                     .inner
                     .iter()
-                    .map(|(key, &r#type)| (key, self.schema.arena.get(r#type).unwrap()));
+                    .map(|(key, &r#type)| (key, schema.arena.get(r#type).unwrap()));
                 // .peekable();
                 while let Some((key, r#type)) = iter.next() {
                     // // manually intersperse
                     write!(
                         f,
                         "{}{}: {}",
-                        self.options.indentation,
+                        options.indentation,
                         key,
                         self.wrap(r#type)
                     )?;
