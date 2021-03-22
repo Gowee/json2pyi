@@ -1,9 +1,11 @@
 use indexmap::IndexMap;
 
-use std::collections::HashSet;
-use std::fmt::{self, Display};
+use std::{
+    collections::HashSet,
+    fmt::{self, Display},
+};
 
-use super::{arena::ArenaIndex, name_hints::NameHints, Type};
+use super::{arena::ArenaIndex, name_hints::NameHints};
 
 /// A collection of field names and their corresponding types, with hints for its name
 ///

@@ -1,7 +1,9 @@
 use serde_json::Value;
 
 use super::*;
-use crate::generation::{Indentation, PythonClass, PythonKind, PythonTypedDict, TargetGenerator, Quote};
+use crate::generation::{
+    Indentation, PythonClass, PythonKind, PythonTypedDict, Quote, TargetGenerator,
+};
 #[test]
 fn test_quicktype() {
     let data = include_str!("../../tests/data/tree-recursion.json");
@@ -22,7 +24,7 @@ fn test_quicktype() {
     let output = PythonTypedDict {
         quote_type: Quote::Double,
         nesting_when_possible: true,
-        mark_optional_as_not_total: false
+        mark_optional_as_not_total: false,
     }
     .generate(&mut schema);
     println!("{}", output.header);

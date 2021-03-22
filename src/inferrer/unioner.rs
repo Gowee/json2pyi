@@ -120,23 +120,23 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
                     // See the linked-list or tree-recursion test case.
                     unioned.insert(r#type);
                 } // Type::Int => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Int));
-                // }
-                // Type::Float => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Float));
-                // }
-                // Type::Bool => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Bool));
-                // }
-                // Type::String => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::String));
-                // }
-                // Type::Null => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Null));
-                // }
-                // Type::Any => {
-                //     unioned.insert(self.arena.get_index_of_primitive(Type::Any));
-                // }
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Int));
+                                                   // }
+                                                   // Type::Float => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Float));
+                                                   // }
+                                                   // Type::Bool => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Bool));
+                                                   // }
+                                                   // Type::String => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::String));
+                                                   // }
+                                                   // Type::Null => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Null));
+                                                   // }
+                                                   // Type::Any => {
+                                                   //     unioned.insert(self.arena.get_index_of_primitive(Type::Any));
+                                                   // }
             }
         }
 

@@ -108,8 +108,7 @@ impl Schema {
             let mut pick = |r#type: ArenaIndex| {
                 if seen.contains(&r#type) {
                     dominant.insert(r#type);
-                }
-                else {
+                } else {
                     stack.push(r#type);
                     seen.insert(r#type);
                 }

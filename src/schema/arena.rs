@@ -1,5 +1,4 @@
-pub use generational_arena::Arena;
-pub use generational_arena::Index as ArenaIndex;
+pub use generational_arena::{Arena, Index as ArenaIndex};
 // pub type Arena<Type> = Arena<Type>;
 use bidirectional_map::Bimap;
 use disjoint_sets::UnionFind;

@@ -103,17 +103,17 @@ struct Contexted<I, C: Copy> {
 impl<I, C: Copy> Contexted<I, C> {
     /// Wrap another type using the schema and the generator options of the current wrapper
     fn wrap<OtherI>(&self, another: OtherI) -> Contexted<OtherI, C> {
-        withContext(another, self.context)
+        with_context(another, self.context)
     }
 }
 
 /// Create and return a new [`WrappedType`]
-fn withContext<I, C: Copy>(inner: I, context: C) -> Contexted<I, C> {
+fn with_context<I, C: Copy>(inner: I, context: C) -> Contexted<I, C> {
     Contexted { inner, context }
 }
 
 // trait IContext<C> {
 //     fn with<I>(self, inner: I) -> Contexted<I, Self> {
-//         withContext(inner, self)
+//         with_context(inner, self)
 //     }
 // }

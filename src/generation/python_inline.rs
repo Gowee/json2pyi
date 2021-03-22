@@ -1,16 +1,15 @@
 use indexmap::IndexSet;
-use itertools::{multipeek, Itertools};
+use itertools::{Itertools};
 use serde::{Deserialize, Serialize};
 
 use std::{
     collections::HashSet,
     fmt::{self, Display, Write},
-    unimplemented,
 };
 
 use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, Union};
 
-use super::{withContext, Contexted, Indentation, Quote, TargetGenerator};
+use super::{with_context, Contexted, Quote, TargetGenerator};
 
 #[derive(Clone, Copy, Debug)] // Or just use &Context as a context
 struct Context<'c>(
@@ -47,7 +46,7 @@ fn write_output(
     options: &PythonTypedDict,
     header: &mut dyn Write,
     body: &mut dyn Write,
-    additional: &mut dyn Write,
+    _additional: &mut dyn Write,
 ) -> fmt::Result {
     let mut imports_from_typing = HashSet::new();
     let mut import_base_class_or_class_decorators = false;
@@ -56,7 +55,7 @@ fn write_output(
 
     let dominant = schema.get_dominant();
 
-    // let wrapper = withContext((), (schema, options, &dominant)); // helper
+    // let wrapper = with_context((), (schema, options, &dominant)); // helper
 
     let mut referenceable = HashSet::<ArenaIndex>::new();
     // panic!("{:?}", dominant.iter().map(|&arni| schema.arena.get(arni).unwrap()).collect::<Vec<_>>());
@@ -70,7 +69,7 @@ fn write_output(
                 body,
                 "{} = {}\n\n",
                 map,
-                withContext(map, Context(schema, options, &dominant, &referenceable))
+                with_context(map, Context(schema, options, &dominant, &referenceable))
             )?;
             referenceable.insert(arni);
         }
@@ -224,10 +223,10 @@ impl<'i, 'c> Display for Contexted<&'i Union, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: union,
-            context: Context(schema, options, dominant, referenceable),
+            context: Context(schema, _options, _dominant, _referenceable),
         } = self;
         let Union {
-            ref name_hints,
+            name_hints: _,
             ref types,
         } = *union;
         let the_null = schema.arena.get_index_of_primitive(Type::Null);
@@ -272,7 +271,7 @@ impl<'i, 'c> Display for Contexted<&'i Map, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: map,
-            context: Context(schema, options, dominant, referenceable),
+            context: Context(schema, options, _dominant, _referenceable),
         } = self;
         let mut is_total = true;
         write!(

@@ -7,10 +7,9 @@ use crate::schema::{ArenaIndex, ITypeArena, Map, Schema, Type, Union};
 use std::{
     collections::HashSet,
     fmt::{self, Display, Write},
-    unimplemented,
 };
 
-use super::{withContext, Contexted, Indentation, TargetGenerator};
+use super::{with_context, Contexted, Indentation, TargetGenerator};
 
 #[derive(Clone, Copy, Debug)]
 struct Context<'c>(&'c Schema, &'c PythonClass);
@@ -63,9 +62,9 @@ fn write_output(
     options: &PythonClass,
     header: &mut dyn Write,
     body: &mut dyn Write,
-    additional: &mut dyn Write,
+    _additional: &mut dyn Write,
 ) -> fmt::Result {
-    let wrapper = withContext((), Context(schema, options)); // helper
+    let wrapper = with_context((), Context(schema, options)); // helper
 
     let decorators = match options.kind {
         Kind::Dataclass | Kind::PydanticDataclass => "@dataclass\n",
@@ -363,7 +362,7 @@ impl<'i, 'c> Display for Contexted<&'c HashSet<ArenaIndex>, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: arnis,
-            context: Context(schema, options),
+            context: Context(schema, _options),
         } = self;
         // NOTE: return value is a union of variants instead of a concatenated string name hints;
         //       null is discarded here
