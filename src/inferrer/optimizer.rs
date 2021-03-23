@@ -34,7 +34,7 @@ impl Optimizer {
             } else if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
                 self.to_merge_same_unions && (a.types == b.types)
             } else {
-                // TODO: merge same array
+                // TODO: merge same array?
                 false
             }
         });

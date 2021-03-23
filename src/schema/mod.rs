@@ -63,7 +63,7 @@ impl<'a> Iterator for TopdownIter<'a> {
             let r#type = arena.get(curr).unwrap();
             match *r#type {
                 Type::Map(ref map) => {
-                    dbg!(curr, r#type);
+                    // dbg!(curr, r#type);
                     for (_, &r#type) in map.fields.iter().rev() {
                         pick(r#type);
                     }

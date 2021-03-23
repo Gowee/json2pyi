@@ -77,9 +77,9 @@ fn write_output(
     };
 
     let mut imports_from_typing = HashSet::new();
-    let mut import_base_class_or_class_decorators = false;
-    let mut import_datetime = false;
-    let mut import_uuid = false;
+    let mut importing_base_class_or_class_decorators = false;
+    let mut importing_datetime = false;
+    let mut importing_uuid = false;
 
     for r#type in schema
         .iter_topdown()
@@ -91,7 +91,7 @@ fn write_output(
                 ref fields,
                 ..
             }) => {
-                import_base_class_or_class_decorators = true;
+                importing_base_class_or_class_decorators = true;
                 fields
                     .iter()
                     .map(|(_, &r#type)| schema.arena.get(r#type).unwrap())
@@ -99,8 +99,8 @@ fn write_output(
                         Type::Any => {
                             imports_from_typing.insert("Any");
                         }
-                        Type::Date => import_datetime = true,
-                        Type::UUID => import_uuid = true,
+                        Type::Date => importing_datetime = true,
+                        Type::UUID => importing_uuid = true,
                         _ => {}
                     });
                 write!(
@@ -135,7 +135,7 @@ fn write_output(
         }
     }
     
-    if import_base_class_or_class_decorators {
+    if importing_base_class_or_class_decorators {
         let import = match options.kind {
             Kind::Dataclass => "from dataclasses import dataclass",
             Kind::DataclassWithJSON => {
@@ -157,10 +157,10 @@ fn write_output(
             .collect::<fmt::Result>()?;
         write!(header, "\n\n")?;
     }
-    if import_datetime {
+    if importing_datetime {
         write!(header, "from datatime import datetime\n\n")?;
     }
-    if import_uuid {
+    if importing_uuid {
         write!(header, "from uuid import UUID\n\n")?;
     }
     Ok(())
@@ -172,7 +172,7 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
             inner: r#type,
             context: Context(schema, options),
         } = self;
-        match self.inner {
+        match r#type {
             Type::Map(Map {
                 ref name_hints,
                 ..
@@ -180,7 +180,7 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
             }) => {
                 // TODO: eliminate unnecessary heap allocation
                 if name_hints.is_empty() {
-                    write!(f, "UnnammedType{:X}", self.inner as *const Type as usize)
+                    write!(f, "UnnammedType{:X}", r#type as *const Type as usize)
                 } else {
                     write!(f, "{}", name_hints)
                 }
@@ -278,8 +278,7 @@ impl<'i, 'c> Display for Contexted<&'c IndexMap<String, ArenaIndex>, Context<'c>
         } = self;
 
         // NOTE: return value are lines of field_name: field_type instead of concatenated hints;
-        let mut iter = self
-            .inner
+        let mut iter = fields
             .iter()
             .map(|(key, &r#type)| (key, schema.arena.get(r#type).unwrap()));
         // .peekable();

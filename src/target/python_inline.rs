@@ -49,9 +49,9 @@ fn write_output(
     _additional: &mut dyn Write,
 ) -> fmt::Result {
     let mut imports_from_typing = HashSet::new();
-    let mut import_base_class_or_class_decorators = false;
-    let mut import_datetime = false;
-    let mut import_uuid = false;
+    let mut importing_base_class_or_class_decorators = false;
+    let mut importing_datetime = false;
+    let mut importing_uuid = false;
 
     let dominant = if options.to_nest_when_possible {
         schema.get_dominant()
@@ -100,7 +100,7 @@ fn write_output(
                 ref fields,
                 ..
             }) => {
-                import_base_class_or_class_decorators = true;
+                importing_base_class_or_class_decorators = true;
                 fields
                     .iter()
                     .map(|(_, &arni)| schema.arena.get(arni).unwrap())
@@ -108,8 +108,8 @@ fn write_output(
                         Type::Any => {
                             imports_from_typing.insert("Any");
                         }
-                        Type::Date => import_datetime = true,
-                        Type::UUID => import_uuid = true,
+                        Type::Date => importing_datetime = true,
+                        Type::UUID => importing_uuid = true,
                         _ => {}
                     });
             }
@@ -132,7 +132,7 @@ fn write_output(
 
     if !imports_from_typing.is_empty() {
         write!(header, "from typing import ")?;
-        if import_base_class_or_class_decorators {
+        if importing_base_class_or_class_decorators {
             write!(header, "TypedDict")?;
             if !imports_from_typing.is_empty() {
                 write!(header, ", ")?;
@@ -145,10 +145,10 @@ fn write_output(
             .collect::<fmt::Result>()?;
         write!(header, "\n\n")?;
     }
-    if import_datetime {
+    if importing_datetime {
         write!(header, "from datatime import datetime\n\n")?;
     }
-    if import_uuid {
+    if importing_uuid {
         write!(header, "from uuid import UUID\n\n")?;
     }
     Ok(())
