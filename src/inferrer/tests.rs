@@ -6,7 +6,7 @@ use crate::generation::{
 };
 #[test]
 fn test_quicktype() {
-    let data = include_str!("../../tests/data/tree-recursion.json");
+    let data = include_str!("../../tests/data/quicktype.json");
     let now = std::time::Instant::now();
     let v: Value = serde_json::from_str(data).unwrap();
 
@@ -23,6 +23,7 @@ fn test_quicktype() {
     dbg!(&schema);
     let output = PythonTypedDict {
         quote_type: Quote::Double,
+        generate_type_alias_for_union: true,
         nesting_when_possible: true,
         mark_optional_as_not_total: false,
     }

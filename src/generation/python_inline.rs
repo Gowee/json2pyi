@@ -1,5 +1,5 @@
 use indexmap::IndexSet;
-use itertools::{Itertools};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use std::{
@@ -22,7 +22,7 @@ struct Context<'c>(
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonTypedDict {
     pub quote_type: Quote,
-    // pub generate_type_alias_for_union: bool,
+    pub generate_type_alias_for_union: bool,
     pub nesting_when_possible: bool,
     pub mark_optional_as_not_total: bool,
 }
@@ -53,7 +53,11 @@ fn write_output(
     let mut import_datetime = false;
     let mut import_uuid = false;
 
-    let dominant = schema.get_dominant();
+    let dominant = if options.nesting_when_possible {
+        schema.get_dominant()
+    } else {
+        schema.iter_topdown().collect()
+    };
 
     // let wrapper = with_context((), (schema, options, &dominant)); // helper
 
@@ -63,15 +67,32 @@ fn write_output(
     for arni in dominant.iter().cloned().rev() {
         let r#type = schema.arena.get(arni).unwrap();
 
-        if let Some(map) = r#type.as_map() {
-            dbg!(r#type);
-            write!(
-                body,
-                "{} = {}\n\n",
-                map,
-                with_context(map, Context(schema, options, &dominant, &referenceable))
-            )?;
-            referenceable.insert(arni);
+        match r#type {
+            Type::Map(map) => {
+                dbg!(r#type);
+                write!(
+                    body,
+                    "{} = {}\n\n",
+                    map,
+                    with_context(map, Context(schema, options, &dominant, &referenceable))
+                )?;
+                referenceable.insert(arni);
+            }
+            Type::Union(union) => {
+                let is_non_trivial = (union.types.len()
+                    - union.types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
+                    > 1;
+                if options.generate_type_alias_for_union && is_non_trivial {
+                    write!(
+                        body,
+                        "{} = {}\n\n",
+                        union,
+                        with_context(union, Context(schema, options, &dominant, &referenceable))
+                    )?;
+                    referenceable.insert(arni);
+                }
+            }
+            _ => (),
         }
     }
     for arni in schema.iter_topdown() {
@@ -193,7 +214,22 @@ impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
                 }
             }
             Type::Union(ref union) => {
-                self.wrap(union).fmt(f)
+                let is_non_trivial = (union.types.len()
+                    - union.types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
+                    > 1;
+                if is_non_trivial && options.generate_type_alias_for_union && dominant.contains(&arni) {
+                    if referenceable.contains(&arni) {
+                        union.fmt(f)
+                    } else {
+                        write!(
+                            f,
+                            r#"{}{}{}"#,
+                            options.quote_type, union, options.quote_type
+                        )
+                    }
+                } else {
+                    self.wrap(union).fmt(f)
+                }
                 // let optional =
                 //     types.contains(&self.schema.arena.get_index_of_primitive(Type::Null));
                 // let union = self.wrap(types);
