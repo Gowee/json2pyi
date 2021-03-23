@@ -59,10 +59,7 @@ fn write_output(
         schema.iter_topdown().collect()
     };
 
-    // let wrapper = with_context((), (schema, options, &dominant)); // helper
-
     let mut referenceable = HashSet::<ArenaIndex>::new();
-    // panic!("{:?}", dominant.iter().map(|&arni| schema.arena.get(arni).unwrap()).collect::<Vec<_>>());
 
     for arni in dominant.iter().cloned().rev() {
         let r#type = schema.arena.get(arni).unwrap();
@@ -115,32 +112,6 @@ fn write_output(
                         Type::UUID => import_uuid = true,
                         _ => {}
                     });
-
-                // match options.kind {
-                //     Kind::TypedDict => {
-                //         write!(
-                //             body,
-                //             r#"{type_name} = TypedDict("{type_name}", {fields_and_totality})"#,
-                //             type_name = wrapper.wrap(r#type),
-                //             fields_and_totality = wrapper.wrap(fields),
-                //         )?;
-                //     }
-                //     Kind::NestedTypedDict => {
-                //         // The wholely nested root object is not generated during loop
-                //     }
-                //     _ => {
-                //         // class
-                //         write!(
-                //             body,
-                //             "{}class {}{}:\n{}",
-                //             decorators,
-                //             wrapper.wrap(r#type), // type name
-                //             base_class,           // to inherit
-                //             wrapper.wrap(fields)  // lines of fields and types
-                //         )?;
-                //         write!(body, "\n")?;
-                //     }
-                // }
             }
             Type::Union(Union {
                 /* ref name_hints, */
@@ -150,11 +121,6 @@ fn write_output(
                 let is_non_trivial = (types.len()
                     - types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
                     > 1;
-                // if options.generate_type_alias_for_union && is_non_trivial {
-                //     imports_from_typing.insert("Union");
-                //     write!(body, "{} = {}", wrapper.wrap(r#type), wrapper.wrap(types))?;
-                //     write!(body, "\n")?;
-                // }
                 imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
             }
             Type::Array(_) => {
@@ -163,10 +129,6 @@ fn write_output(
             _ => {}
         }
     }
-
-    // if options.kind == Kind::NestedTypedDict {
-    //     write!(body, "{}", wrapper.wrap(()))?;
-    // }
 
     if !imports_from_typing.is_empty() {
         write!(header, "from typing import ")?;
@@ -230,15 +192,6 @@ impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
                 } else {
                     self.wrap(union).fmt(f)
                 }
-                // let optional =
-                //     types.contains(&self.schema.arena.get_index_of_primitive(Type::Null));
-                // let union = self.wrap(types);
-
-                // if optional {
-                //     write!(f, "Optional[{}]", union)
-                // } else {
-                //     union.fmt(f)
-                // }
             }
             Type::Array(inner) => {
                 write!(f, "List[{}]", self.wrap(inner))
@@ -267,7 +220,6 @@ impl<'i, 'c> Display for Contexted<&'i Union, Context<'c>> {
         } = *union;
         let the_null = schema.arena.get_index_of_primitive(Type::Null);
         let optional = types.contains(&the_null);
-        // let mut iter = multipeek(types.iter().cloned().filter(|&arni| arni != the_null));
         let mut iter = types
             .iter()
             .cloned()
@@ -277,7 +229,6 @@ impl<'i, 'c> Display for Contexted<&'i Union, Context<'c>> {
         if optional {
             write!(f, "Optional[")?;
         }
-        // let _ = iter.peek(); // Discard the first
         if types.len() - optional as usize > 1 {
             // Regardless of a possible null, there are at least two other inner types.
             while let Some(arni) = iter.next() {
@@ -341,7 +292,7 @@ impl<'i, 'c> Display for Contexted<&'i Map, Context<'c>> {
         }
         write!(f, "}}")?;
         if !is_total {
-            // NOTE: optional is for a field, but totality is only for its parental type
+            // NOTE: optional is for a field, but totality is only for its parental type in whole
             write!(f, ", total=False")?;
         }
         write!(f, ")")?;
