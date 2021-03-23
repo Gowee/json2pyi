@@ -22,9 +22,9 @@ struct Context<'c>(
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonTypedDict {
     pub quote_type: Quote,
-    pub generate_type_alias_for_union: bool,
-    pub nesting_when_possible: bool,
-    pub mark_optional_as_not_total: bool,
+    pub to_generate_type_alias_for_union: bool,
+    pub to_nest_when_possible: bool,
+    pub to_mark_optional_as_not_total: bool,
 }
 
 #[typetag::serde]
@@ -53,7 +53,7 @@ fn write_output(
     let mut import_datetime = false;
     let mut import_uuid = false;
 
-    let dominant = if options.nesting_when_possible {
+    let dominant = if options.to_nest_when_possible {
         schema.get_dominant()
     } else {
         schema.iter_topdown().collect()
@@ -79,7 +79,7 @@ fn write_output(
                 let is_non_trivial = (union.types.len()
                     - union.types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
                     > 1;
-                if options.generate_type_alias_for_union && is_non_trivial {
+                if options.to_generate_type_alias_for_union && is_non_trivial {
                     write!(
                         body,
                         "{} = {}\n\n",
@@ -179,7 +179,7 @@ impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
                 let is_non_trivial = (union.types.len()
                     - union.types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
                     > 1;
-                if is_non_trivial && options.generate_type_alias_for_union && dominant.contains(&arni) {
+                if is_non_trivial && options.to_generate_type_alias_for_union && dominant.contains(&arni) {
                     if referenceable.contains(&arni) {
                         union.fmt(f)
                     } else {
@@ -272,7 +272,7 @@ impl<'i, 'c> Display for Contexted<&'i Map, Context<'c>> {
         while let Some((key, arni)) = iter.next() {
             let r#type = schema.arena.get(arni).unwrap();
             if let Type::Union(Union { ref types, .. }) = *r#type {
-                if options.mark_optional_as_not_total
+                if options.to_mark_optional_as_not_total
                     && types.contains(&schema.arena.get_index_of_primitive(Type::Null))
                 {
                     is_total = false;

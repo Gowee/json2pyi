@@ -1,9 +1,6 @@
-mod adhoc;
-mod heuristic;
+mod json;
+mod optimizer;
 mod unioner;
 
-pub use adhoc::infer;
-pub use heuristic::Optimizer;
-
-#[cfg(test)]
-mod tests;
+pub use json::infer as infer_from_json;
+pub use optimizer::Optimizer;

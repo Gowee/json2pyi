@@ -17,7 +17,7 @@ struct Context<'c>(&'c Schema, &'c PythonClass);
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PythonClass {
     pub kind: Kind,
-    pub generate_type_alias_for_union: bool,
+    pub to_generate_type_alias_for_union: bool,
     // pub use_pydantic_datamodel: bool,
     pub indentation: Indentation,
 }
@@ -121,7 +121,7 @@ fn write_output(
                 let is_non_trivial = (types.len()
                     - types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
                     > 1;
-                if options.generate_type_alias_for_union && is_non_trivial {
+                if options.to_generate_type_alias_for_union && is_non_trivial {
                     imports_from_typing.insert("Union");
                     write!(body, "{} = {}", wrapper.wrap(r#type), wrapper.wrap(types))?;
                     write!(body, "\n")?;
@@ -189,7 +189,7 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
                 ref name_hints,
                 ref types,
             }) => {
-                if options.generate_type_alias_for_union && {
+                if options.to_generate_type_alias_for_union && {
                     let is_non_trivial = (types.len()
                         - types.contains(&schema.arena.get_index_of_primitive(Type::Null))
                             as usize)

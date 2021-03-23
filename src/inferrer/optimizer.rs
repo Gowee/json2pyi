@@ -12,20 +12,27 @@ use crate::schema::{ArenaIndex, ITypeArena, Schema, Type, TypeArena};
 
 /// A optimizer that merge similar `Map`s and/or same `Union`s as configured
 pub struct Optimizer {
-    pub merging_similar_datatypes: bool,
-    pub merging_same_unions: bool,
+    pub to_merge_similar_datatypes: bool,
+    pub to_merge_same_unions: bool,
 }
 
 impl Optimizer {
+    pub fn new_default() -> Optimizer {
+        Optimizer {
+            to_merge_similar_datatypes: true,
+            to_merge_same_unions: true,
+        }
+    }
+
     pub fn optimize(&self, schema: &mut Schema) {
         // Note: Merging maps and unions at the same time may have produced results different from
         // seperate merging (find map sets - merge - flatten - find union sets - merge - flatten).
         // For simplicity, just take the first way.
         let sets = schema.arena.find_disjoint_sets(|a, b| {
             if let (Some(a), Some(b)) = (a.as_map(), b.as_map()) {
-                self.merging_similar_datatypes && a.is_similar_to(b)
+                self.to_merge_similar_datatypes && a.is_similar_to(b)
             } else if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
-                self.merging_same_unions && (a.types == b.types)
+                self.to_merge_same_unions && (a.types == b.types)
             } else {
                 // TODO: merge same array
                 false
@@ -34,8 +41,8 @@ impl Optimizer {
         let mut ufarena = TypeArenaWithDSU::from_type_arena(&mut schema.arena);
         for (leader, mut set) in sets.into_iter() {
             if ufarena.get(leader).map(|r#type| {
-                (self.merging_similar_datatypes && r#type.is_map())
-                    || (self.merging_same_unions && r#type.is_union())
+                (self.to_merge_similar_datatypes && r#type.is_map())
+                    || (self.to_merge_same_unions && r#type.is_union())
             }) == Some(true)
             {
                 set.insert(leader); // leader in disjoint set is now a follower
