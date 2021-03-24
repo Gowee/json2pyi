@@ -73,7 +73,7 @@ jobs:
         # Optional version of wasm-pack to install(eg. 'v0.9.1', 'latest')
         version: 'latest'
     - name: Build wasm
-      run: wasm-pack build
+      run: wasm-pack build --release
     - name: Push to wasm branch"
       run: |
         git add -f pkg/
