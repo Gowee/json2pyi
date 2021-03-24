@@ -127,7 +127,6 @@ class App extends Component<Props, State> {
     // if (event.currentTarget.nodeName === 'A') {
     // console.log(event.currentTarget.target)
     // }
-    console.log(event.currentTarget.dataset.target)
     localStorage.setItem("targetSelected", event.currentTarget.dataset.target ?? TARGET_OPTIONS[0])
     this.setState({ targetMenu: null, targetSelected: event.currentTarget.dataset.target ?? TARGET_OPTIONS[0] })
     this.doGenerate()
