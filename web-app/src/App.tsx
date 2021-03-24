@@ -1,12 +1,15 @@
-import React, { Component, ComponentProps } from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { Component } from 'react';
+// import logo from './logo.svg';
+// import './App.css';
 
 import MonacoEditor from 'react-monaco-editor';
-import { AppBar, Box, CssBaseline, Grid, Theme, Toolbar, Typography, createStyles, withStyles, WithStyles, LinearProgress, FormControl, InputLabel, Select, Menu, MenuItem, Tooltip, Button } from '@material-ui/core';
+import { AppBar, Box, CssBaseline, Grid, Theme, Toolbar, Typography, createStyles, IconButton, withStyles, WithStyles, /*FormControl, InputLabel, Select,*/ Menu, MenuItem, Tooltip, Button } from '@material-ui/core';
 import SettingsIcon from '@material-ui/icons/Settings';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import GitHubIcon from '@material-ui/icons/GitHub';
 // import ResizeObserver from 'react-resize-detector';
+
+import PACKAGE from '../package.json'
 
 
 const TARGET_OPTIONS = ['Dataclass', 'DataclassWithJSON', 'PydanticBaseModel', 'PydanticDataclass', 'TypedDict', 'NestedTypedDict'] as const
@@ -45,21 +48,22 @@ interface Props extends WithStyles<typeof styles> { }
 interface State {
   targetMenu: any
   targetSelected: (typeof TARGET_OPTIONS)[number]
-  input: string
   output: string
 }
 
 class App extends Component<Props, State> {
   inputEditor?: any
   outputEditor?: any
+  input = `{"message": "Try to paste some structural JSON here"}`
 
   constructor(props: Props) {
     super(props)
 
+    this.input = localStorage.getItem(`${PACKAGE.name}-code`) ?? this.input
+
     this.state = {
       targetMenu: null,
       targetSelected: (localStorage.getItem("targetSelected") as any) ?? TARGET_OPTIONS[0],
-      input: '{"message": "Try to paste some structural JSON here"}',
       output: "# No input"
     }
 
@@ -73,6 +77,7 @@ class App extends Component<Props, State> {
 
   componentDidMount() {
     window.addEventListener('resize', this.updateEditorsLayout)
+    this.doGenerate()
   }
 
   inputEditorDidMount(editor: any, _monaco: any) {
@@ -90,22 +95,23 @@ class App extends Component<Props, State> {
   }
 
   async handleInput(newValue: string, _event: any) {
-    this.setState({ input: newValue })
+    localStorage.setItem(`${PACKAGE.name}-code`, newValue)
+    this.input = newValue
     this.doGenerate()
   }
 
   async doGenerate() {
-    const { json2type } = await import('../../pkg/json2pyi')
+    const { json2type, Target } = await import('../../pkg/json2pyi')
     try {
       // Pre-validate JSON
       // TODO: proper error handling within Rust module
-      const _ = JSON.parse(this.state.input)
+      JSON.parse(this.input)
     }
     catch (_e) {
       return
     }
     try {
-      const output = json2type(this.state.input, 0)
+      const output = json2type(this.input, Target[this.state.targetSelected])
       output && this.setState({ output })
     } catch (e) {
       this.setState({output: e.toString()})
@@ -138,7 +144,7 @@ class App extends Component<Props, State> {
         <AppBar position='static'>
           <Toolbar variant='dense'>
             <Typography variant="h6">
-              JSON to Type
+              JSON to Python Types
             </Typography>
             {/* <LinearProgress color="secondary" /> */}
             <Box sx={{ flexGrow: 1 }} />
@@ -180,6 +186,17 @@ class App extends Component<Props, State> {
                 </MenuItem>
               ))}
             </Menu>
+          <Tooltip title={"Source Code"} enterDelay={300}>
+            <IconButton
+              component="a"
+              color="inherit"
+              href={PACKAGE.homepage}
+              data-ga-event-category="header"
+              data-ga-event-action="github"
+            >
+              <GitHubIcon />
+            </IconButton>
+          </Tooltip>
           </Toolbar>
         </AppBar>
         <Box
@@ -188,7 +205,7 @@ class App extends Component<Props, State> {
           sx={{ flexGrow: 1, display: 'flex', flexWrap: 'nowrap', minHeight: "0px" }}
         >
           <Box className={classes.editorPane} sx={{ display: 'flex', flexDirection: 'column' }}>
-            <Box className={classes.optionPane}>
+            {/* <Box className={classes.optionPane}>
               <FormControl variant="outlined" className={classes.formControl} sx={{ minWidth: "10em" }}>
                 <InputLabel id="demo-simple-select-outlined-label">Target Language</InputLabel>
                 <Select
@@ -207,15 +224,15 @@ class App extends Component<Props, State> {
                   <MenuItem value={30}>Thirty</MenuItem>
                 </Select>
               </FormControl>
-            </Box>
+            </Box> */}
             <Box flexGrow={1}>
               <MonacoEditor
                 width="100%"
                 height="100%"
                 language="json"
                 theme="vs-light"
-                value={this.state.input}
-                // options={ }
+                value={this.input}
+                // options={{lineNumbersMinChars:3}}
                 onChange={this.handleInput}
                 editorDidMount={this.inputEditorDidMount}
               />
@@ -228,8 +245,7 @@ class App extends Component<Props, State> {
               language="python"
               theme="vs-light"
               value={this.state.output}
-              // value={"Target a\n\nba\n\nba\n\nba\n\nba\n\nba\n\nba\n\nba\n\nb"}
-              // options={ }
+              // options={{lineNumbersMinChars:3}}
               // onChange={::this.onChange}
               editorDidMount={this.outputEditorDidMount}
             />
