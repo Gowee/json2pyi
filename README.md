@@ -1,5 +1,9 @@
-# (WIP) JSON to PYI
-json2pyi infers and generates Python type definitions (dataclass or TypedDict) from a sample JSON file.
+# JSON to Python Types
+json2pyi infers a type schema from a sample JSON file and generates Python type definitions ([`dataclass`](https://docs.python.org/3/library/dataclasses.html), [`BaseModel`](https://pydantic-docs.helpmanual.io/usage/models/) or [`TypedDict`](https://www.python.org/dev/peps/pep-0589/)) accordingly.
+
+<!--Even though the project is still an MVP, it is expected to be stable & usable as a Web app. Please do not hesitate to raise an issue if you find any problems.-->
+
+__Now available online__: https://json2pyi.pages.dev
 
 ## Example
 **Input:**
@@ -81,21 +85,25 @@ class RootObject:
 
 ## TODO
 - [ ] Detect tuple (array)
-- [ ] Detect UUID / datetime
+- [x] Detect UUID / datetime
 - [ ] Detect Enum
 - [x] Merge data types with similar structure and common name prefix/suffix
 - [x] Detect recursive type definition (e.g. tree) 
-- [ ] Include imports of non-primitive types
-- [ ] Generate type alias for complex Union
-- [ ] Generate TypedDict
-- [ ] Refactor to unify TypedDict and dataclass generation
-- [ ] Compile to WASM and provide a Web-based app
+- [x] Include imports of non-primitive types
+- [x] Generate type alias for complex Union
+- [x] Generate TypedDict
+- [ ] <del>Refactor to unify TypedDict and dataclass generation</del>
+- [x] Compile to WASM and provide a Web-based app
+- [ ] Allow to control more options on Web app (partially blocked by https://github.com/vhiribarren/raytracer-rust/issues/8) 
 - [ ] Avoid merge data types with totally different structures in a union
 - [ ] Avoid unnecessary heap allocation by reducing one-time usage of Vec 
 - [ ] Allow specifying the order of generated data types 
+- [ ] Support more input types, such as JSON Schema
+- [ ] Support more target languages
 
 ## Credits
 The project is inspired by: 
 - https://app.quicktype.io/?l=ts
 - https://github.com/thautwarm/schema-provider.py
 - https://jvilk.com/MakeTypes/
+- https://github.com/koxudaxi/datamodel-code-generator/

@@ -43,7 +43,7 @@ pub enum Kind {
     // NestedTypedDict,
 }
 
-#[typetag::serde]
+// #[typetag::serde]
 impl TargetGenerator for PythonClass {
     fn write_output(
         &self,

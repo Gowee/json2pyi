@@ -1,10 +1,7 @@
-name: Rust
+name: Build
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
@@ -24,3 +21,16 @@ jobs:
       run: cargo clippy --verbose
     - name: Check Format
       run: cargo fmt -- --check
+    - uses: jetli/wasm-pack-action@v0.3.0
+      with:
+        # Optional version of wasm-pack to install(eg. 'v0.9.1', 'latest')
+        version: 'latest'
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '15'
+    - name: Init Web app
+      run: yarn install
+    - name: Build web app
+      run: yarn build
+    - name: Test web app
+      run: yarn test # no effective test so far, just to make sure it lints & builds well

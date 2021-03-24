@@ -27,7 +27,7 @@ pub struct PythonTypedDict {
     pub to_mark_optional_as_not_total: bool,
 }
 
-#[typetag::serde]
+// #[typetag::serde]
 impl TargetGenerator for PythonTypedDict {
     fn write_output(
         &self,
@@ -130,7 +130,7 @@ fn write_output(
         }
     }
 
-    if !imports_from_typing.is_empty() {
+    if importing_base_class_or_class_decorators || !imports_from_typing.is_empty() {
         write!(header, "from typing import ")?;
         if importing_base_class_or_class_decorators {
             write!(header, "TypedDict")?;
@@ -231,6 +231,7 @@ impl<'i, 'c> Display for Contexted<&'i Union, Context<'c>> {
         }
         if types.len() - optional as usize > 1 {
             // Regardless of a possible null, there are at least two other inner types.
+            write!(f, "Union[")?;
             while let Some(arni) = iter.next() {
                 // manually intersperse
                 self.wrap(arni).fmt(f)?;

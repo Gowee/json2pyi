@@ -32,7 +32,7 @@ pub struct GenOutput {
 //     fn generate();
 // }
 
-#[typetag::serde(tag = "target")]
+// #[typetag::serde(tag = "target")]
 pub trait TargetGenerator {
     fn generate(&self, schema: &Schema) -> GenOutput {
         let mut header = String::new();
