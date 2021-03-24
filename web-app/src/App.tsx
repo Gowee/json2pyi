@@ -8,6 +8,7 @@ import SettingsIcon from '@material-ui/icons/Settings';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 // import ResizeObserver from 'react-resize-detector';
 
+
 const TARGET_OPTIONS = ['Dataclass', 'DataclassWithJSON', 'PydanticBaseModel', 'PydanticDataclass', 'TypedDict', 'NestedTypedDict'] as const
 
 const styles = (theme: Theme) => createStyles({
@@ -41,9 +42,11 @@ const styles = (theme: Theme) => createStyles({
 
 interface Props extends WithStyles<typeof styles> { }
 
-interface State { 
+interface State {
   targetMenu: any
   targetSelected: (typeof TARGET_OPTIONS)[number]
+  input: string
+  output: string
 }
 
 class App extends Component<Props, State> {
@@ -55,12 +58,15 @@ class App extends Component<Props, State> {
 
     this.state = {
       targetMenu: null,
-      targetSelected: (localStorage.getItem("targetSelected") as any) ?? TARGET_OPTIONS[0]
+      targetSelected: (localStorage.getItem("targetSelected") as any) ?? TARGET_OPTIONS[0],
+      input: '{"message": "Try to paste some structural JSON here"}',
+      output: "# No input"
     }
 
     this.inputEditorDidMount = this.inputEditorDidMount.bind(this)
     this.outputEditorDidMount = this.outputEditorDidMount.bind(this)
     this.updateEditorsLayout = this.updateEditorsLayout.bind(this)
+    this.handleInput = this.handleInput.bind(this)
     this.handleTargetIconClick = this.handleTargetIconClick.bind(this)
     this.handleTargetMenuClose = this.handleTargetMenuClose.bind(this)
   }
@@ -83,19 +89,43 @@ class App extends Component<Props, State> {
     this.outputEditor && this.outputEditor.layout()
   }
 
+  async handleInput(newValue: string, _event: any) {
+    this.setState({ input: newValue })
+    this.doGenerate()
+  }
+
+  async doGenerate() {
+    const { json2type } = await import('../../pkg/json2pyi')
+    try {
+      // Pre-validate JSON
+      // TODO: proper error handling within Rust module
+      const _ = JSON.parse(this.state.input)
+    }
+    catch (_e) {
+      return
+    }
+    try {
+      const output = json2type(this.state.input, 0)
+      output && this.setState({ output })
+    } catch (e) {
+      this.setState({output: e.toString()})
+    }
+  }
+
   handleTargetIconClick(event: any) {
-    this.setState({targetMenu: event.target})
+    this.setState({ targetMenu: event.target })
   }
 
   handleTargetMenuClose(event: any) {
     // console.log(event.currentTarget, event.currentTarget.nodeName);
     // if (event.currentTarget.nodeName === 'A') {
-      // console.log(event.currentTarget.target)
+    // console.log(event.currentTarget.target)
     // }
     console.log(event.currentTarget.dataset.target)
     localStorage.setItem("targetSelected", event.currentTarget.dataset.target ?? TARGET_OPTIONS[0])
-    this.setState({targetMenu: null, targetSelected: event.currentTarget.dataset.target ?? TARGET_OPTIONS[0]})
-  }
+    this.setState({ targetMenu: null, targetSelected: event.currentTarget.dataset.target ?? TARGET_OPTIONS[0] })
+    this.doGenerate()
+  } 
 
   render() {
     const classes = this.props.classes;
@@ -117,7 +147,7 @@ class App extends Component<Props, State> {
                 color="inherit"
                 aria-owns={this.state.targetMenu ? 'target-menu' : undefined}
                 aria-haspopup="true"
-              onClick={this.handleTargetIconClick}
+                onClick={this.handleTargetIconClick}
               // data-ga-event-category="header"
               // data-ga-event-action="language"
               >
@@ -144,7 +174,7 @@ class App extends Component<Props, State> {
                   selected={target === targetSelected}
                   onClick={this.handleTargetMenuClose}
                   data-target={target}
-                  // hrefLang={language.code}
+                // hrefLang={language.code}
                 >
                   Python - {target}
                 </MenuItem>
@@ -182,11 +212,11 @@ class App extends Component<Props, State> {
               <MonacoEditor
                 width="100%"
                 height="100%"
-                language="javascript"
+                language="json"
                 theme="vs-light"
-                value={"Source a\n\nba\n\nba\n\nba\n\nba\n\nba\n\nba\n\nba\n\nb"}
+                value={this.state.input}
                 // options={ }
-                // onChange={::this.onChange}
+                onChange={this.handleInput}
                 editorDidMount={this.inputEditorDidMount}
               />
             </Box>
@@ -195,9 +225,10 @@ class App extends Component<Props, State> {
             <MonacoEditor
               width="100%"
               height="100%"
-              language="javascript"
+              language="python"
               theme="vs-light"
-              value={"Target a\n\nba\n\nba\n\nba\n\nba\n\nba\n\nba\n\nba\n\nb"}
+              value={this.state.output}
+              // value={"Target a\n\nba\n\nba\n\nba\n\nba\n\nba\n\nba\n\nba\n\nb"}
               // options={ }
               // onChange={::this.onChange}
               editorDidMount={this.outputEditorDidMount}
