@@ -1,0 +1,15 @@
+{
+  "name": "json2pyi",
+  "collaborators": [
+    "Hung-I Wang <whygowe@gmail.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "json2pyi_bg.wasm",
+    "json2pyi.js",
+    "json2pyi.d.ts"
+  ],
+  "module": "json2pyi.js",
+  "types": "json2pyi.d.ts",
+  "sideEffects": false
+}
