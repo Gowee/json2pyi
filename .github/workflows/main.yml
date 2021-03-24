@@ -29,8 +29,11 @@ jobs:
       with:
         node-version: '15'
     - name: Init Web app
+      working-directory: web/
       run: yarn install
     - name: Build web app
+      working-directory: web/
       run: yarn build
     - name: Test web app
+      working-directory: web/
       run: yarn test # no effective test so far, just to make sure it lints & builds well
