@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - '*'
-      - '!wasm' # https://github.community/t/github-actions-on-push-not-master/16026/2
+      - '!web' # https://github.community/t/github-actions-on-push-not-master/16026/2
   pull_request:
 
 env:
