@@ -59,7 +59,7 @@ class App extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
 
-    this.input = localStorage.getItem(`${PACKAGE.repository.url}-code`) ?? this.input
+    this.input = localStorage.getItem(`${PACKAGE.name}-code`) ?? this.input
 
     this.state = {
       targetMenu: null,
@@ -189,7 +189,7 @@ class App extends Component<Props, State> {
             <IconButton
               component="a"
               color="inherit"
-              href={PACKAGE.homepage}
+              href={PACKAGE.repository.url}
               data-ga-event-category="header"
               data-ga-event-action="github"
             >
