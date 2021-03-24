@@ -77,7 +77,10 @@ fn write_output(
             }
             Type::Union(union) => {
                 let is_non_trivial = (union.types.len()
-                    - union.types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
+                    - union
+                        .types
+                        .contains(&schema.arena.get_index_of_primitive(Type::Null))
+                        as usize)
                     > 1;
                 if options.to_generate_type_alias_for_union && is_non_trivial {
                     write!(
@@ -177,9 +180,15 @@ impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
             }
             Type::Union(ref union) => {
                 let is_non_trivial = (union.types.len()
-                    - union.types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
+                    - union
+                        .types
+                        .contains(&schema.arena.get_index_of_primitive(Type::Null))
+                        as usize)
                     > 1;
-                if is_non_trivial && options.to_generate_type_alias_for_union && dominant.contains(&arni) {
+                if is_non_trivial
+                    && options.to_generate_type_alias_for_union
+                    && dominant.contains(&arni)
+                {
                     if referenceable.contains(&arni) {
                         union.fmt(f)
                     } else {

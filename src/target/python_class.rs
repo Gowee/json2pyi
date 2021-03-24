@@ -134,7 +134,7 @@ fn write_output(
             _ => {}
         }
     }
-    
+
     if importing_base_class_or_class_decorators {
         let import = match options.kind {
             Kind::Dataclass => "from dataclasses import dataclass",
