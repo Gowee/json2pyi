@@ -28,6 +28,7 @@ jobs:
 
 
   build-web:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/typearena' # FIX: main
     needs: build-main
     runs-on: ubuntu-latest
     steps:
@@ -54,9 +55,9 @@ jobs:
     #   working-directory: web/
     #   run: yarn test # no effective test so far, just to make sure it lints & builds well
 
-  push-wasm-pkg: # push built wasm pkg to a branch for CF pages.dev
+  build-and-push-web: # push built wasm pkg to a branch for CF pages.dev
     if: github.event_name == 'push' && github.ref == 'refs/heads/typearena' # FIX: main
-    needs: build-web
+    needs: build-main
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -66,7 +67,7 @@ jobs:
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
-        git checkout wasm
+        git switch web
         git merge "${GITHUB_REF#refs/heads/}" 
     - uses: jetli/wasm-pack-action@v0.3.0
       with:
@@ -74,8 +75,21 @@ jobs:
         version: 'latest'
     - name: Build wasm
       run: wasm-pack build --release
-    - name: Push to wasm branch"
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '15'
+    - name: Init web
+      working-directory: web/
       run: |
+        node --version
+        yarn --version
+        yarn install
+    - name: Build
+      working-directory: web/
+      run: yarn build
+    - name: Push to web branch"
+      run: |
+        git add -f web/build/
         git add -f pkg/
-        git diff-index --quiet HEAD || git commit -m "Build wasm for ${GITHUB_SHA::7}"
+        git diff-index --quiet HEAD || git commit -m "Build wasm and web for ${GITHUB_SHA::7}"
         git push
