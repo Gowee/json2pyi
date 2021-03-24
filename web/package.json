@@ -2,7 +2,11 @@
   "name": "json2type-web",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://github.com/gowee/json2pyi",
+  "homepage": "https://json2pyi.pages.dev/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gowee/json2pyi.git"
+  },
   "dependencies": {
     "@emotion/react": "^11.1.5",
     "@emotion/styled": "^11.1.5",

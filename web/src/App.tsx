@@ -3,7 +3,7 @@ import React, { Component } from 'react';
 // import './App.css';
 
 import MonacoEditor from 'react-monaco-editor';
-import { AppBar, Box, CssBaseline, Grid, Theme, Toolbar, Typography, createStyles, IconButton, withStyles, WithStyles, /*FormControl, InputLabel, Select,*/ Menu, MenuItem, Tooltip, Button } from '@material-ui/core';
+import { AppBar, Box, CssBaseline, /* Grid, */ Theme, Toolbar, Typography, createStyles, IconButton, withStyles, WithStyles, /*FormControl, InputLabel, Select,*/ Menu, MenuItem, Tooltip, Button } from '@material-ui/core';
 import SettingsIcon from '@material-ui/icons/Settings';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import GitHubIcon from '@material-ui/icons/GitHub';
@@ -59,7 +59,7 @@ class App extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
 
-    this.input = localStorage.getItem(`${PACKAGE.name}-code`) ?? this.input
+    this.input = localStorage.getItem(`${PACKAGE.repository.url}-code`) ?? this.input
 
     this.state = {
       targetMenu: null,

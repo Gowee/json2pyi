@@ -1,39 +1,81 @@
 name: Build
 
 on:
-  [push, pull_request]
+  push:
+    branches:
+      - '*'
+      - '!wasm' # https://github.community/t/github-actions-on-push-not-master/16026/2
+  pull_request:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  build-main:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Build
-      run: cargo build --verbose
+      run: |
+        cargo --version
+        cargo build --verbose
     - name: Test
       run: cargo test --verbose
     - name: Clippy
       run: cargo clippy --verbose
     - name: Check Format
       run: cargo fmt -- --check
+
+
+  build-web:
+    needs: build-main
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
     - uses: jetli/wasm-pack-action@v0.3.0
       with:
         # Optional version of wasm-pack to install(eg. 'v0.9.1', 'latest')
         version: 'latest'
+    - name: Build wasm
+      run: wasm-pack build
     - uses: actions/setup-node@v1
       with:
         node-version: '15'
-    - name: Init Web app
+    - name: Init web
       working-directory: web/
-      run: yarn install
-    - name: Build web app
+      run: |
+        node --version
+        yarn --version
+        yarn install
+    - name: Build
       working-directory: web/
       run: yarn build
-    - name: Test web app
-      working-directory: web/
-      run: yarn test # no effective test so far, just to make sure it lints & builds well
+    # - name: Test
+    #   working-directory: web/
+    #   run: yarn test # no effective test so far, just to make sure it lints & builds well
+
+  push-wasm-pkg: # push built wasm pkg to a branch for CF pages.dev
+    if: github.event_name == 'push' && github.ref == 'refs/heads/typearena' # FIX: main
+    needs: build-web
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: "Prepare git and repo"
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git checkout wasm
+        git merge "${GITHUB_REF#refs/heads/}" 
+    - uses: jetli/wasm-pack-action@v0.3.0
+      with:
+        # Optional version of wasm-pack to install(eg. 'v0.9.1', 'latest')
+        version: 'latest'
+    - name: Build wasm
+      run: wasm-pack build
+    - name: Push to wasm branch"
+      run: |
+        git add -f pkg/
+        git diff-index --quiet HEAD || git commit -m "Build wasm for ${GITHUB_SHA::7}"
+        git push
