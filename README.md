@@ -1,5 +1,5 @@
 # JSON to Python Types
-*json2pyi* infers a type schema from a sample JSON file and generates Python type definitions ([`dataclass`](https://docs.python.org/3/library/dataclasses.html), [`BaseModel`](https://pydantic-docs.helpmanual.io/usage/models/) or [`TypedDict`](https://www.python.org/dev/peps/pep-0589/)) accordingly.
+*json2pyi* infers a type schema from a sample JSON file and generates Python type definitions ([`dataclass`](https://docs.python.org/3/library/dataclasses.html), Pydantic [`BaseModel`](https://pydantic-docs.helpmanual.io/usage/models/) or PEP-589 [`TypedDict`](https://www.python.org/dev/peps/pep-0589/)) accordingly.
 
 <!--Even though the project is still an MVP, it is expected to be stable & usable as a Web app. Please do not hesitate to raise an issue if you find any problems.-->
 
