@@ -1,3 +1,5 @@
+# Note: The project is only intended to work as a web app for now.
+#       The crate itself has no stable API and no plan to release so far.
 [package]
 authors = ["Hung-I Wang <whygowe@gmail.com>"]
 edition = "2018"

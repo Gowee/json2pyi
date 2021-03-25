@@ -1,5 +1,5 @@
 # JSON to Python Types
-**json2pyi** infers a type schema from a sample JSON file and generates Python type definitions ([`dataclass`](https://docs.python.org/3/library/dataclasses.html), Pydantic [`BaseModel`](https://pydantic-docs.helpmanual.io/usage/models/) or PEP-589 [`TypedDict`](https://www.python.org/dev/peps/pep-0589/)) accordingly. It runs in browser, requiring no installation.
+*json2pyi* infers a type schema from a sample JSON file and generates Python type definitions ([`dataclass`](https://docs.python.org/3/library/dataclasses.html), Pydantic [`BaseModel`](https://pydantic-docs.helpmanual.io/usage/models/) or PEP-589 [`TypedDict`](https://www.python.org/dev/peps/pep-0589/)) accordingly. It runs in browser, requiring no installation.
 
 <!--Even though the project is still an MVP, it is expected to be stable & usable as a Web app. Please do not hesitate to raise an issue if you find any problems.-->
 
@@ -101,7 +101,7 @@ Status = TypedDict("Status", {"description": str, "indicator": str})
 
 Page = TypedDict("Page", {"id": str, "name": str, "url": str, "updated_at": datetime})
 
-UnnammedType3C2BC8 = TypedDict("UnnammedType3C2BC8", {"page": Page, "status": Status, "components": List[Component], "incidents": List[IncidentOrScheduledMaintenance], "scheduled_maintenances": List[IncidentOrScheduledMaintenance]})
+RootObject = TypedDict("UnnammedType3C2BC8", {"page": Page, "status": Status, "components": List[Component], "incidents": List[IncidentOrScheduledMaintenance], "scheduled_maintenances": List[IncidentOrScheduledMaintenance]})
 ```
 
 ## TODO
@@ -117,7 +117,7 @@ UnnammedType3C2BC8 = TypedDict("UnnammedType3C2BC8", {"page": Page, "status": St
 - [x] <del>Refactor to unify TypedDict and dataclass generation</del> Seperated intendedly for clear code structure.
 - [x] Compile to WASM and provide a Web-based app
 - [ ] Allow to tweak more options on Web app (partially blocked by https://github.com/vhiribarren/raytracer-rust/issues/8) 
-- [ ] Avoid merge data types with totally different structures in a union
+- [ ] Avoid merging data types with totally different structures in a union
 - [ ] Avoid unnecessary heap allocation by reducing one-time usage of Vec 
 - [ ] Allow specifying the order of generated data types 
 - [ ] Support more input types, such as JSON Schema
