@@ -88,7 +88,7 @@ Or:
 ```python
 from typing import TypedDict, Optional, List
 
-from datatime import datetime
+from datetime import datetime
 
 
 IncidentUpdate = TypedDict("IncidentUpdate", {"body": str, "created_at": datetime, "display_at": datetime, "id": str, "incident_id": str, "status": str, "updated_at": datetime})
@@ -122,6 +122,7 @@ RootObject = TypedDict("UnnammedType3C2BC8", {"page": Page, "status": Status, "c
 - [ ] Allow specifying the order of generated data types 
 - [ ] Support more input types, such as JSON Schema
 - [ ] Support more target languages
+- [ ] Add usage instructions
 
 ## Credits
 The project is inspired by: 

@@ -1,21 +1,21 @@
+use indexmap::IndexSet;
 use itertools::Itertools;
 
 use std::{
-    collections::HashSet,
     fmt,
     ops::{Deref, DerefMut},
 };
 
-/// Name hints in [`super::Type::Map`] or [`super::Type::Union`], a wrapper around `HashSet<String>`
+/// Name hints in [`super::Type::Map`] or [`super::Type::Union`], a wrapper around `IndexSet<String>`
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct NameHints(HashSet<String>);
+pub struct NameHints(IndexSet<String>);
 
 impl NameHints {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn into_inner(self) -> HashSet<String> {
+    pub fn into_inner(self) -> IndexSet<String> {
         self.into()
     }
 }
@@ -31,7 +31,7 @@ impl fmt::Display for NameHints {
 }
 
 impl Deref for NameHints {
-    type Target = HashSet<String>;
+    type Target = IndexSet<String>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -43,13 +43,13 @@ impl DerefMut for NameHints {
     }
 }
 
-impl From<HashSet<String>> for NameHints {
-    fn from(h: HashSet<String>) -> Self {
+impl From<IndexSet<String>> for NameHints {
+    fn from(h: IndexSet<String>) -> Self {
         NameHints(h)
     }
 }
 
-impl From<NameHints> for HashSet<String> {
+impl From<NameHints> for IndexSet<String> {
     fn from(h: NameHints) -> Self {
         h.0
     }

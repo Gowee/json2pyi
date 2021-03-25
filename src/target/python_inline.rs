@@ -166,7 +166,7 @@ impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
         } = self;
 
         let r#type = schema.arena.get(arni).unwrap();
-        println!("{:?}\n\n", r#type);
+        // println!("{:?}\n\n", r#type);
         match *r#type {
             Type::Map(ref map) => {
                 if dominant.contains(&arni) {
