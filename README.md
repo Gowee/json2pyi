@@ -1,9 +1,9 @@
 # JSON to Python Types
-*json2pyi* infers a type schema from a sample JSON file and generates Python type definitions ([`dataclass`](https://docs.python.org/3/library/dataclasses.html), Pydantic [`BaseModel`](https://pydantic-docs.helpmanual.io/usage/models/) or PEP-589 [`TypedDict`](https://www.python.org/dev/peps/pep-0589/)) accordingly.
+**json2pyi** infers a type schema from a sample JSON file and generates Python type definitions ([`dataclass`](https://docs.python.org/3/library/dataclasses.html), Pydantic [`BaseModel`](https://pydantic-docs.helpmanual.io/usage/models/) or PEP-589 [`TypedDict`](https://www.python.org/dev/peps/pep-0589/)) accordingly. It runs in browser, requiring no installation.
 
 <!--Even though the project is still an MVP, it is expected to be stable & usable as a Web app. Please do not hesitate to raise an issue if you find any problems.-->
 
-__Now available online__: https://json2pyi.pages.dev
+__Available online__: https://json2pyi.pages.dev
 
 ## Example
 **Input:**
@@ -83,6 +83,27 @@ class RootObject:
     status = Status
 ```
 
+Or:
+
+```python
+from typing import TypedDict, Optional, List
+
+from datatime import datetime
+
+
+IncidentUpdate = TypedDict("IncidentUpdate", {"body": str, "created_at": datetime, "display_at": datetime, "id": str, "incident_id": str, "status": str, "updated_at": datetime})
+
+IncidentOrScheduledMaintenance = TypedDict("IncidentOrScheduledMaintenance", {"created_at": datetime, "id": str, "impact": str, "incident_updates": List[IncidentUpdate], "monitoring_at": None, "name": str, "page_id": str, "resolved_at": None, "shortlink": str, "status": str, "updated_at": datetime, "scheduled_for": Optional[datetime], "scheduled_until": Optional[datetime]})
+
+Component = TypedDict("Component", {"created_at": datetime, "description": None, "id": str, "name": str, "page_id": str, "position": int, "status": str, "updated_at": datetime})
+
+Status = TypedDict("Status", {"description": str, "indicator": str})
+
+Page = TypedDict("Page", {"id": str, "name": str, "url": str, "updated_at": datetime})
+
+UnnammedType3C2BC8 = TypedDict("UnnammedType3C2BC8", {"page": Page, "status": Status, "components": List[Component], "incidents": List[IncidentOrScheduledMaintenance], "scheduled_maintenances": List[IncidentOrScheduledMaintenance]})
+```
+
 ## TODO
 - [ ] Detect tuple (array)
 - [x] Detect UUID / datetime
@@ -91,10 +112,11 @@ class RootObject:
 - [x] Detect recursive type definition (e.g. tree) 
 - [x] Include imports of non-primitive types
 - [x] Generate type alias for complex Union
+- [ ] Improve the logic of determining whether a Union ix complex or not
 - [x] Generate TypedDict
-- [ ] <del>Refactor to unify TypedDict and dataclass generation</del>
+- [x] <del>Refactor to unify TypedDict and dataclass generation</del> Seperated intendedly for clear code structure.
 - [x] Compile to WASM and provide a Web-based app
-- [ ] Allow to control more options on Web app (partially blocked by https://github.com/vhiribarren/raytracer-rust/issues/8) 
+- [ ] Allow to tweak more options on Web app (partially blocked by https://github.com/vhiribarren/raytracer-rust/issues/8) 
 - [ ] Avoid merge data types with totally different structures in a union
 - [ ] Avoid unnecessary heap allocation by reducing one-time usage of Vec 
 - [ ] Allow specifying the order of generated data types 
