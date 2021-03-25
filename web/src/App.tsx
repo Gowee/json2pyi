@@ -14,6 +14,7 @@ import PACKAGE from '../package.json'
 
 
 const TARGET_OPTIONS = ['Dataclass', 'DataclassWithJSON', 'PydanticBaseModel', 'PydanticDataclass', 'TypedDict', 'NestedTypedDict'] as const
+type TargetType = (typeof TARGET_OPTIONS)[number]
 
 const styles = (theme: Theme) => createStyles({
   root: {
@@ -53,7 +54,7 @@ interface Props extends WithStyles<typeof styles> { }
 
 interface State {
   targetMenu: any
-  targetSelected: (typeof TARGET_OPTIONS)[number]
+  targetSelected: TargetType
   output: string
 }
 
@@ -67,9 +68,15 @@ class App extends Component<Props, State> {
 
     this.input = localStorage.getItem(`${PACKAGE.name}-code`) ?? this.input
 
+    let target = window.location.hash.slice(1) as TargetType
+    if (!TARGET_OPTIONS.includes(target)) {
+      target = TARGET_OPTIONS[0]
+      updateTargetInHash(target)
+    }
+
     this.state = {
       targetMenu: null,
-      targetSelected: (localStorage.getItem("targetSelected") as any) ?? TARGET_OPTIONS[0],
+      targetSelected: target,
       output: "# No input"
     }
 
@@ -120,7 +127,7 @@ class App extends Component<Props, State> {
       const output = json2type(this.input, Target[this.state.targetSelected])
       output && this.setState({ output })
     } catch (e) {
-      this.setState({output: e.toString()})
+      this.setState({ output: e.toString() })
     }
   }
 
@@ -133,10 +140,10 @@ class App extends Component<Props, State> {
     // if (event.currentTarget.nodeName === 'A') {
     // console.log(event.currentTarget.target)
     // }
-    localStorage.setItem("targetSelected", event.currentTarget.dataset.target ?? TARGET_OPTIONS[0])
+    updateTargetInHash(event.currentTarget.dataset.target ?? TARGET_OPTIONS[0])
     this.setState({ targetMenu: null, targetSelected: event.currentTarget.dataset.target ?? TARGET_OPTIONS[0] })
     this.doGenerate()
-  } 
+  }
 
   render() {
     const classes = this.props.classes;
@@ -148,7 +155,7 @@ class App extends Component<Props, State> {
         <CssBaseline />
         <AppBar position='static' color="transparent">
           <Toolbar variant='dense'>
-            <Typography variant="h6" sx={{fontFamily: 'monospace'}}>
+            <Typography variant="h6" sx={{ fontFamily: 'monospace' }}>
               JSON2PYI
             </Typography>
             <Box className={classes.subtitleWrapper}>
@@ -196,17 +203,17 @@ class App extends Component<Props, State> {
                 </MenuItem>
               ))}
             </Menu>
-          <Tooltip title={"Project Repo"} enterDelay={300}>
-            <IconButton
-              component="a"
-              color="inherit"
-              href={PACKAGE.repository.url}
-              data-ga-event-category="header"
-              data-ga-event-action="github"
-            >
-              <GitHubIcon />
-            </IconButton>
-          </Tooltip>
+            <Tooltip title={"Project Repo"} enterDelay={300}>
+              <IconButton
+                component="a"
+                color="inherit"
+                href={PACKAGE.repository.url}
+                data-ga-event-category="header"
+                data-ga-event-action="github"
+              >
+                <GitHubIcon />
+              </IconButton>
+            </Tooltip>
           </Toolbar>
         </AppBar>
         <Box
@@ -344,5 +351,9 @@ class App extends Component<Props, State> {
 //     </div>
 //   );
 // }
+
+const updateTargetInHash = (target: string) => {
+  window.history.replaceState({}, '', `#${target}`)
+} 
 
 export default withStyles(styles)(App);
