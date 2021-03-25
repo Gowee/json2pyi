@@ -8,14 +8,13 @@ module.exports = function override(config, env) {
   config.plugins.push(
     new MonacoWebpackPlugin({
       languages: ['json', 'python', 'rust']
+    }),
+    new WasmPackPlugin({
+      crateDirectory: path.resolve(__dirname, "../"),
+      withTypeScript: true,
+      // it is 'index' by default, different from the default (package name) of wasm-pack
+      outName: 'json2pyi'
     }));
-  if (env === "development") { // Otherwise, wasm-pack build should be executed before
-    config.plugins.push(
-      new WasmPackPlugin({
-        crateDirectory: path.resolve(__dirname, "../"),
-        withTypeScript: true
-      }))
-  }
 
   const wasmExtensionRegExp = /\.wasm$/;
 
