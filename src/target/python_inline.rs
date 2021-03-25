@@ -146,14 +146,15 @@ fn write_output(
             .intersperse(", ")
             .map(|e| write!(header, "{}", e))
             .collect::<fmt::Result>()?;
-        write!(header, "\n\n")?;
+        write!(header, "\n")?;
     }
     if importing_datetime {
-        write!(header, "from datatime import datetime\n\n")?;
+        write!(header, "from datatime import datetime\n")?;
     }
     if importing_uuid {
-        write!(header, "from uuid import UUID\n\n")?;
+        write!(header, "from uuid import UUID\n")?;
     }
+    // write!(header, "\n")?;
     Ok(())
 }
 

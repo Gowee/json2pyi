@@ -105,7 +105,7 @@ fn write_output(
                     });
                 write!(
                     body,
-                    "{}class {}{}:\n{}",
+                    "{}class {}{}:\n{}", // fields has a trailing LF
                     decorators,
                     wrapper.wrap(r#type), // type name
                     base_class,           // to inherit
@@ -123,7 +123,7 @@ fn write_output(
                     > 1;
                 if options.to_generate_type_alias_for_union && is_non_trivial {
                     imports_from_typing.insert("Union");
-                    write!(body, "{} = {}", wrapper.wrap(r#type), wrapper.wrap(types))?;
+                    write!(body, "{} = {}\n", wrapper.wrap(r#type), wrapper.wrap(types))?;
                     write!(body, "\n")?;
                 }
                 imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
@@ -142,11 +142,11 @@ fn write_output(
                 "from dataclasses import dataclass\nfrom dataclasses_json import dataclass_json"
             }
             Kind::PydanticBaseModel => "from pydantic import BaseModel",
-            Kind::PydanticDataclass => "from pydantic import dataclass",
+            Kind::PydanticDataclass => "from pydantic.dataclasses import dataclass",
         };
-        write!(header, "from __future__ import annotations\n\n")?;
+        write!(header, "from __future__ import annotations\n")?;
 
-        write!(header, "{}\n\n", import)?;
+        write!(header, "{}\n", import)?;
     }
     if !imports_from_typing.is_empty() {
         write!(header, "from typing import ")?;
@@ -155,14 +155,15 @@ fn write_output(
             .intersperse(", ")
             .map(|e| write!(header, "{}", e))
             .collect::<fmt::Result>()?;
-        write!(header, "\n\n")?;
+        write!(header, "\n")?;
     }
     if importing_datetime {
-        write!(header, "from datatime import datetime\n\n")?;
+        write!(header, "from datatime import datetime\n")?;
     }
     if importing_uuid {
-        write!(header, "from uuid import UUID\n\n")?;
+        write!(header, "from uuid import UUID\n")?;
     }
+    // write!(header, "\n")?;
     Ok(())
 }
 
@@ -173,42 +174,26 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
             context: Context(schema, options),
         } = self;
         match r#type {
-            Type::Map(Map {
-                ref name_hints,
-                ..
-                // ref fields,
-            }) => {
+            Type::Map(ref map) => {
                 // TODO: eliminate unnecessary heap allocation
-                if name_hints.is_empty() {
-                    write!(f, "UnnammedType{:X}", r#type as *const Type as usize)
-                } else {
-                    write!(f, "{}", name_hints)
-                }
+                map.fmt(f)
             }
-            Type::Union(Union {
-                ref name_hints,
-                ref types,
-            }) => {
+            Type::Union(ref union) => {
                 if options.to_generate_type_alias_for_union && {
-                    let is_non_trivial = (types.len()
-                        - types.contains(&schema.arena.get_index_of_primitive(Type::Null))
+                    let is_non_trivial = (union.types.len()
+                        - union.types.contains(&schema.arena.get_index_of_primitive(Type::Null))
                             as usize)
                         > 1;
                     is_non_trivial
                 } {
-                    if name_hints.is_empty() {
-                        write!(f, "UnnammedUnion{:X}", r#type as *const Type as usize)
-                    } else {
-                        write!(f, "{}Union", name_hints)
-                    }
+                    union.fmt(f)
                 } else {
                     let optional =
-                        types.contains(&schema.arena.get_index_of_primitive(Type::Null));
-                    let union = self.wrap(types);
+                        union.types.contains(&schema.arena.get_index_of_primitive(Type::Null));
                     if optional {
-                        write!(f, "Optional[{}]", union)
+                        write!(f, "Optional[{}]", self.wrap(&union.types))
                     } else {
-                        union.fmt(f)
+                        self.wrap(&union.types).fmt(f)
                     }
                 }
             }

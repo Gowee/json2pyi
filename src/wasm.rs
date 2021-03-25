@@ -80,7 +80,7 @@ pub fn json2type(json: &str, target: Target) -> Option<String> {
         body,
         additional,
     } = target.generate(&schema);
-    Some([&header, &body, &additional].iter().cloned().join("\n"))
+    Some([&header, &body, &additional].iter().cloned().filter(|s| !s.is_empty()).join("\n"))
 }
 
 // use crate::generation::TargetLang;

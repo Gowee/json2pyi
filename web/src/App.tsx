@@ -4,7 +4,8 @@ import React, { Component } from 'react';
 
 import MonacoEditor from 'react-monaco-editor';
 import { AppBar, Box, CssBaseline, /* Grid, */ Theme, Toolbar, Typography, createStyles, IconButton, withStyles, WithStyles, /*FormControl, InputLabel, Select,*/ Menu, MenuItem, Tooltip, Button } from '@material-ui/core';
-import SettingsIcon from '@material-ui/icons/Settings';
+// import SettingsIcon from '@material-ui/icons/Settings';
+import SwapVertIcon from '@material-ui/icons/SwapVert';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import GitHubIcon from '@material-ui/icons/GitHub';
 // import ResizeObserver from 'react-resize-detector';
@@ -40,7 +41,12 @@ const styles = (theme: Theme) => createStyles({
   selectEmpty: {
     marginTop: theme.spacing(2),
   },
-  targetLanguage: { margin: theme.spacing(0, 0.5, 0, 1) }
+  targetLanguage: { margin: theme.spacing(0, 0.5, 0, 1) },
+  subtitleWrapper: {
+    margin: theme.spacing(0, 2),
+    [theme.breakpoints.down('sm')]: { display: 'none' },
+    [theme.breakpoints.up('sm')]: { display: 'inline-block' },
+  }
 })
 
 interface Props extends WithStyles<typeof styles> { }
@@ -140,11 +146,16 @@ class App extends Component<Props, State> {
       // <ResizeObserver handleWidth handleHeight onResize={this.updateEditorsLayout}>
       <Box className={classes.root}>
         <CssBaseline />
-        <AppBar position='static'>
+        <AppBar position='static' color="transparent">
           <Toolbar variant='dense'>
-            <Typography variant="h6">
-              JSON to Python Types
+            <Typography variant="h6" sx={{fontFamily: 'monospace'}}>
+              JSON2PYI
             </Typography>
+            <Box className={classes.subtitleWrapper}>
+              <Typography variant="subtitle2">
+                JSON to Python Types
+              </Typography>
+            </Box>
             {/* <LinearProgress color="secondary" /> */}
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Select Target Language" enterDelay={300}>
@@ -156,7 +167,7 @@ class App extends Component<Props, State> {
               // data-ga-event-category="header"
               // data-ga-event-action="language"
               >
-                <SettingsIcon />
+                <SwapVertIcon />
                 <span className={classes.targetLanguage}>
                   {/* {LANGUAGES_LABEL.filter((language) => language.code === userLanguage)[0].text} */}
                   Python - {targetSelected}
@@ -185,7 +196,7 @@ class App extends Component<Props, State> {
                 </MenuItem>
               ))}
             </Menu>
-          <Tooltip title={"Source Code"} enterDelay={300}>
+          <Tooltip title={"Project Repo"} enterDelay={300}>
             <IconButton
               component="a"
               color="inherit"
