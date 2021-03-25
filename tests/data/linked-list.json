@@ -1,0 +1,7 @@
+{
+    "value": 9,
+    "next": {
+        "value": 1,
+        "next": null
+    }
+}
