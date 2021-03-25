@@ -40,10 +40,10 @@ pub trait TargetGenerator {
         let mut additional = String::new();
         self.write_output(schema, &mut header, &mut body, &mut additional)
             .unwrap();
-        fix_redundant_trailing_line_feed(&mut header);    
-        fix_redundant_trailing_line_feed(&mut body);    
-        fix_redundant_trailing_line_feed(&mut additional);    
-            GenOutput {
+        fix_redundant_trailing_line_feed(&mut header);
+        fix_redundant_trailing_line_feed(&mut body);
+        fix_redundant_trailing_line_feed(&mut additional);
+        GenOutput {
             header,
             body,
             additional,
@@ -123,10 +123,10 @@ fn with_context<I, C: Copy>(inner: I, context: C) -> Contexted<I, C> {
 
 fn fix_redundant_trailing_line_feed(s: &mut String) {
     // TODO: ensure write_ouput returns no redundant \n
-    while s.ends_with("\n") {
+    while s.ends_with('\n') {
         s.pop().unwrap();
     }
     if !s.is_empty() {
-        s.push_str("\n");
+        s.push_str('\n');
     }
 }

@@ -181,15 +181,18 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
             Type::Union(ref union) => {
                 if options.to_generate_type_alias_for_union && {
                     let is_non_trivial = (union.types.len()
-                        - union.types.contains(&schema.arena.get_index_of_primitive(Type::Null))
+                        - union
+                            .types
+                            .contains(&schema.arena.get_index_of_primitive(Type::Null))
                             as usize)
                         > 1;
                     is_non_trivial
                 } {
                     union.fmt(f)
                 } else {
-                    let optional =
-                        union.types.contains(&schema.arena.get_index_of_primitive(Type::Null));
+                    let optional = union
+                        .types
+                        .contains(&schema.arena.get_index_of_primitive(Type::Null));
                     if optional {
                         write!(f, "Optional[{}]", self.wrap(&union.types))
                     } else {
@@ -199,11 +202,7 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
             }
             Type::Array(r#type) => {
                 // dbg!(r#type);
-                write!(
-                    f,
-                    "List[{}]",
-                    self.wrap(schema.arena.get(*r#type).unwrap())
-                )
+                write!(f, "List[{}]", self.wrap(schema.arena.get(*r#type).unwrap()))
             }
             Type::Int => write!(f, "int"),
             Type::Float => write!(f, "float"),
