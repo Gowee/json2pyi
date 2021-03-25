@@ -127,6 +127,6 @@ fn fix_redundant_trailing_line_feed(s: &mut String) {
         s.pop().unwrap();
     }
     if !s.is_empty() {
-        s.push_str('\n');
+        s.push('\n');
     }
 }
