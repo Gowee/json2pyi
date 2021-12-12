@@ -160,7 +160,7 @@ fn write_output(
         write!(header, "\n")?;
     }
     if importing_datetime {
-        write!(header, "from datatime import datetime\n")?;
+        write!(header, "from datetime import datetime\n")?;
     }
     if importing_uuid {
         write!(header, "from uuid import UUID\n")?;
