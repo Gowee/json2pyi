@@ -27,7 +27,8 @@ pub enum Target {
     DataclassWithJSON,
     PydanticBaseModel,
     PydanticDataclass,
-    TypedDict,
+    TypedDictClass,
+    TypedDictInline,
     NestedTypedDict,
 }
 
@@ -62,7 +63,12 @@ pub fn json2type(json: &str, target: Target) -> Option<String> {
             to_generate_type_alias_for_union: true,
             indentation: Indentation::Space(4),
         },
-        Target::TypedDict => &PythonTypedDict {
+        Target::TypedDictClass => &PythonClass {
+            kind: PythonKind::TypedDict,
+            to_generate_type_alias_for_union: true,
+            indentation: Indentation::Space(4),
+        },
+        Target::TypedDictInline => &PythonTypedDict {
             quote_type: Quote::Double,
             to_generate_type_alias_for_union: true,
             to_nest_when_possible: false,

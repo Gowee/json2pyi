@@ -36,11 +36,8 @@ pub enum Kind {
     /// Use [`dataclass` from pydantic](https://pydantic-docs.helpmanual.io/usage/dataclasses/) as
     /// the decorator
     PydanticDataclass,
-    // /// Use `TypedDict` from the built-in `typing` module as the base class
-    // TypedDict,
-    // /// Use `TypedDict` from the built-in `typing` module as the base class with all sub classes
-    // /// nested into the root one
-    // NestedTypedDict,
+    /// Use `TypedDict` from the built-in `typing` module as the base class, as explained in [PEP-589](https://www.python.org/dev/peps/pep-0589/#class-based-syntax)
+    TypedDict, // TODO: totality?
 }
 
 // #[typetag::serde]
@@ -73,6 +70,7 @@ fn write_output(
     };
     let base_class = match options.kind {
         Kind::PydanticBaseModel => "(BaseModel)",
+        Kind::TypedDict => "(TypedDict)",
         _ => "",
     };
 
@@ -143,6 +141,10 @@ fn write_output(
             }
             Kind::PydanticBaseModel => "from pydantic import BaseModel",
             Kind::PydanticDataclass => "from pydantic.dataclasses import dataclass",
+            Kind::TypedDict => {
+                imports_from_typing.insert("TypedDict");
+                ""
+            }
         };
         write!(header, "from __future__ import annotations\n")?;
 

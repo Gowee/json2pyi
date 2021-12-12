@@ -13,7 +13,7 @@ import GitHubIcon from '@material-ui/icons/GitHub';
 import PACKAGE from '../package.json'
 
 
-const TARGET_OPTIONS = ['Dataclass', 'DataclassWithJSON', 'PydanticBaseModel', 'PydanticDataclass', 'TypedDict', 'NestedTypedDict'] as const
+const TARGET_OPTIONS = ['Dataclass', 'DataclassWithJSON', 'PydanticBaseModel', 'PydanticDataclass', 'TypedDictClass', 'TypedDictInline', 'NestedTypedDict'] as const
 type TargetType = (typeof TARGET_OPTIONS)[number]
 
 const styles = (theme: Theme) => createStyles({
@@ -127,7 +127,7 @@ class App extends Component<Props, State> {
       const output = json2type(this.input, Target[this.state.targetSelected])
       output && this.setState({ output })
     } catch (e) {
-      this.setState({ output: e.toString() })
+      this.setState({ output: (e as any).toString() })
     }
   }
 

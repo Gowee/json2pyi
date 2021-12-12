@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "json2pyi",
+  "name": "Generate Python type definitions from sample JSONs",
   "icons": [
     {
       "src": "favicon.ico",

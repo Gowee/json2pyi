@@ -10,8 +10,8 @@
   "dependencies": {
     "@emotion/react": "^11.1.5",
     "@emotion/styled": "^11.1.5",
-    "@material-ui/core": "^5.0.0-alpha.27",
-    "@material-ui/icons": "^5.0.0-alpha.27",
+    "@material-ui/core": "=5.0.0-alpha.27",
+    "@material-ui/icons": "=5.0.0-alpha.27",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
