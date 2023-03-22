@@ -2,15 +2,15 @@ import React, { Component } from 'react';
 // import logo from './logo.svg';
 // import './App.css';
 
+import { AppBar, Box, Button, createStyles, CssBaseline, IconButton, /*FormControl, InputLabel, Select,*/ Menu, MenuItem, /* Grid, */ Theme, Toolbar, Tooltip, Typography, withStyles, WithStyles } from '@material-ui/core';
 import MonacoEditor from 'react-monaco-editor';
-import { AppBar, Box, CssBaseline, /* Grid, */ Theme, Toolbar, Typography, createStyles, IconButton, withStyles, WithStyles, /*FormControl, InputLabel, Select,*/ Menu, MenuItem, Tooltip, Button } from '@material-ui/core';
 // import SettingsIcon from '@material-ui/icons/Settings';
-import SwapVertIcon from '@material-ui/icons/SwapVert';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import GitHubIcon from '@material-ui/icons/GitHub';
+import SwapVertIcon from '@material-ui/icons/SwapVert';
 // import ResizeObserver from 'react-resize-detector';
 
-import PACKAGE from '../package.json'
+import PACKAGE from '../package.json';
 
 
 const TARGET_OPTIONS = ['Dataclass', 'DataclassWithJSON', 'PydanticBaseModel', 'PydanticDataclass', 'TypedDictClass', 'TypedDictInline', 'NestedTypedDict'] as const
@@ -68,7 +68,9 @@ class App extends Component<Props, State> {
 
     this.input = localStorage.getItem(`${PACKAGE.name}-code`) ?? this.input
 
-    let target = window.location.hash.slice(1) as TargetType
+    let target = (
+      localStorage.getItem(`${PACKAGE.name}-target`) ?? window.location.hash.slice(1)
+    ) as TargetType
     if (!TARGET_OPTIONS.includes(target)) {
       target = TARGET_OPTIONS[0]
       updateTargetInHash(target)
@@ -140,8 +142,10 @@ class App extends Component<Props, State> {
     // if (event.currentTarget.nodeName === 'A') {
     // console.log(event.currentTarget.target)
     // }
-    updateTargetInHash(event.currentTarget.dataset.target ?? TARGET_OPTIONS[0])
-    this.setState({ targetMenu: null, targetSelected: event.currentTarget.dataset.target ?? TARGET_OPTIONS[0] })
+    const newTarget = event.currentTarget.dataset.target ?? TARGET_OPTIONS[0]
+    updateTargetInHash(newTarget)
+    localStorage.setItem(`${PACKAGE.name}-target`, newTarget)
+    this.setState({ targetMenu: null, targetSelected: newTarget })
     this.doGenerate()
   }
 
@@ -277,7 +281,7 @@ class App extends Component<Props, State> {
 // function App() {
 //   const classes = useStyles();
 
-//   // const state, setState 
+//   // const state, setState
 
 //   return <Box className={classes.root}>
 //     <CssBaseline />
@@ -354,6 +358,6 @@ class App extends Component<Props, State> {
 
 const updateTargetInHash = (target: string) => {
   window.history.replaceState({}, '', `#${target}`)
-} 
+}
 
 export default withStyles(styles)(App);
