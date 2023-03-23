@@ -68,13 +68,13 @@ class App extends Component<Props, State> {
 
     this.input = localStorage.getItem(`${PACKAGE.name}-code`) ?? this.input
 
-    let target = (
-      localStorage.getItem(`${PACKAGE.name}-target`) ?? window.location.hash.slice(1)
-    ) as TargetType
-    if (!TARGET_OPTIONS.includes(target)) {
+    let targetCandidates = [window.location.hash.slice(1),
+      localStorage.getItem(`${PACKAGE.name}-target`)] as TargetType[]
+    let target = targetCandidates.find((t) => TARGET_OPTIONS.includes(t))
+    if (!target) {
       target = TARGET_OPTIONS[0]
-      updateTargetInHash(target)
     }
+    updateTargetInHash(target)
 
     this.state = {
       targetMenu: null,
