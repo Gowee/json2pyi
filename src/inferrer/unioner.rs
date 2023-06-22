@@ -54,17 +54,17 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
                     .expect("The type should be present in the arena during unioning")
                 {
                     Type::Union(_) => {
-                        let Union { name_hints, types } = if let Some(..) = first_union {
+                        let Union { name_hints, types } = if let Some(first_union) = first_union {
+                            self.arena
+                                .remove_in_favor_of(r#type, first_union)
+                                .unwrap()
+                                .into_union()
+                                .unwrap() // remove & expand the union
+                        } else {
                             first_union = Some(r#type);
                             mem::take(self.arena.get_mut(r#type).unwrap())
                                 .into_union()
                                 .unwrap()
-                        } else {
-                            self.arena
-                                .remove_in_favor_of(r#type, first_union.unwrap())
-                                .unwrap()
-                                .into_union()
-                                .unwrap() // remove & expand the union
                         };
                         union_name_hints.extend(name_hints.into_inner());
                         types.into_iter().collect::<Vec<_>>()
@@ -80,19 +80,20 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
             match *self.arena.get(r#type).unwrap() {
                 Type::Map(_) => {
                     let map;
-                    if let Some(..) = first_map {
-                        // If this is the first map in the union, just take its inner out so that
-                        // its slot can be reused again with ArenaIndex left intact.
-                        first_map = Some(r#type);
-                        map = mem::take(self.arena.get_mut(r#type).unwrap())
+                    if let Some(first_map) = first_map {
+                        // If it is not the first map in the union, just remove the type from the
+                        // arena.
+                        map = self
+                            .arena
+                            .remove_in_favor_of(r#type, first_map)
+                            .unwrap()
                             .into_map()
                             .unwrap();
                     } else {
-                        // O.W., just remove the type from the arena.
-                        map = self
-                            .arena
-                            .remove_in_favor_of(r#type, first_map.unwrap())
-                            .unwrap()
+                        // O.W., just take the inner of the first map out so that its slot can be
+                        // reused again with ArenaIndex left intact.
+                        first_map = Some(r#type);
+                        map = mem::take(self.arena.get_mut(r#type).unwrap())
                             .into_map()
                             .unwrap();
                     }
