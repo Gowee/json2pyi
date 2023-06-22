@@ -204,35 +204,35 @@ impl<'a> Deref for TypeArenaWithDSU<'a> {
     type Target = TypeArena;
 
     fn deref(&self) -> &Self::Target {
-        &self.arena
+        self.arena
     }
 }
 
 impl<'a> DerefMut for TypeArenaWithDSU<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.arena
+        self.arena
     }
 }
 
 impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
     #[inline(always)]
     fn get(&self, i: ArenaIndex) -> Option<&Type> {
-        let t = self
+        
+        // dbg!(i, &t, self.find_representative(i));
+        self
             .find_representative(i) // if it is in the DSU
             .or(Some(i)) // O.W. it should be a newly added type during unioning
-            .and_then(|arni| self.arena.get(arni));
-        // dbg!(i, &t, self.find_representative(i));
-        t // TODO: clean up
+            .and_then(|arni| self.arena.get(arni)) // TODO: clean up
     }
 
     #[inline(always)]
     fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut Type> {
-        let t = self
+        
+        // dbg!(i, &t);
+        self
             .find_representative(i) // if it is in the DSU
             .or(Some(i)) // O.W. it should be a newly added type during unioning
-            .and_then(move |arni| self.arena.get_mut(arni));
-        // dbg!(i, &t);
-        t
+            .and_then(move |arni| self.arena.get_mut(arni))
         // FIX: borrowing issue
     }
 
@@ -259,7 +259,7 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
     }
 
     #[inline(always)]
-    fn get_primitive_types(&self) -> &[ArenaIndex; 8] {
+    fn get_primitive_types(&self) -> &[ArenaIndex; 9] {
         self.arena.get_primitive_types()
     }
 }

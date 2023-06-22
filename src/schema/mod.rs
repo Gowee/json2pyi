@@ -24,6 +24,7 @@ pub struct Schema {
 }
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub enum Type {
     // TODO: doc
     Map(Map),
@@ -36,6 +37,8 @@ pub enum Type {
     Date,
     UUID,
     Null,
+    Missing,
+    #[default]
     Any,
 }
 
@@ -168,6 +171,13 @@ impl Type {
             _ => false,
         }
     }
+
+    pub fn is_missing(&self) -> bool {
+        match *self {
+            Self::Missing => true,
+            _ => false,
+        }
+    }
     pub fn is_bool(&self) -> bool {
         match *self {
             Self::Bool => true,
@@ -244,8 +254,4 @@ impl Type {
     }
 }
 
-impl Default for Type {
-    fn default() -> Self {
-        Type::Any
-    }
-}
+

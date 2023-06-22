@@ -96,7 +96,7 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
                             .into_map()
                             .unwrap();
                     }
-                    let maps = maps.get_or_insert_with(|| Default::default());
+                    let maps = maps.get_or_insert_with(Default::default);
                     for (key, r#type) in map.fields.into_iter() {
                         maps.entry(key).or_default().push(r#type);
                     }
@@ -146,10 +146,10 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
             let unioned_map: IndexMap<String, ArenaIndex> = maps
                 .into_iter()
                 .map(|(key, mut types)| {
-                    // The field is nullable if not present in every Map.
+                    // The field is not required if not present in every Map.
                     if types.len() < map_count {
-                        types.push(self.arena.get_index_of_primitive(Type::Null));
-                        // Null
+                        types.push(self.arena.get_index_of_primitive(Type::Missing));
+                        // TypeScript: ?/undefined; Python: Missing/NotRequired
                     }
                     (key, self.runion(types))
                 })
@@ -202,7 +202,7 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
         // }
         match unioned.len() {
             0 => self.arena.get_index_of_primitive(Type::Any), // Any
-            1 => unioned.drain().nth(0).unwrap(),
+            1 => unioned.drain().next().unwrap(),
             _ => {
                 let union = Type::Union(Union {
                     name_hints: union_name_hints,

@@ -1,5 +1,5 @@
 use indexmap::IndexSet;
-use itertools::Itertools;
+use itertools::{multipeek, Itertools};
 use serde::{Deserialize, Serialize};
 
 use std::{
@@ -66,7 +66,6 @@ fn write_output(
 
         match r#type {
             Type::Map(map) => {
-                dbg!(r#type);
                 write!(
                     body,
                     "{} = {}\n\n",
@@ -80,6 +79,10 @@ fn write_output(
                     - union
                         .types
                         .contains(&schema.arena.get_index_of_primitive(Type::Null))
+                        as usize
+                    - union
+                        .types
+                        .contains(&schema.arena.get_index_of_primitive(Type::Missing))
                         as usize)
                     > 1;
                 if options.to_generate_type_alias_for_union && is_non_trivial {
@@ -122,9 +125,19 @@ fn write_output(
                 ..
             }) => {
                 let is_non_trivial = (types.len()
-                    - types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
+                    - types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize
+                    - types.contains(&schema.arena.get_index_of_primitive(Type::Missing)) as usize)
                     > 1;
-                imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
+                if is_non_trivial {
+                    imports_from_typing.insert("Union");
+                }
+                if types.contains(&schema.arena.get_index_of_primitive(Type::Missing)) {
+                    imports_from_typing.insert(if types.len() == 1 {
+                        "Missing"
+                    } else {
+                        "NotRequired"
+                    });
+                }
             }
             Type::Array(_) => {
                 imports_from_typing.insert("List");
@@ -143,16 +156,14 @@ fn write_output(
         }
         imports_from_typing
             .into_iter()
-            .intersperse(", ")
-            .map(|e| write!(header, "{}", e))
-            .collect::<fmt::Result>()?;
-        write!(header, "\n")?;
+            .intersperse(", ").try_for_each(|e| write!(header, "{}", e))?;
+        writeln!(header)?;
     }
     if importing_datetime {
-        write!(header, "from datatime import datetime\n")?;
+        writeln!(header, "from datatime import datetime")?;
     }
     if importing_uuid {
-        write!(header, "from uuid import UUID\n")?;
+        writeln!(header, "from uuid import UUID")?;
     }
     // write!(header, "\n")?;
     Ok(())
@@ -180,28 +191,53 @@ impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
                 }
             }
             Type::Union(ref union) => {
+                let not_required = union
+                    .types
+                    .contains(&schema.arena.get_index_of_primitive(Type::Missing))
+                    && union.types.len() > 1;
                 let is_non_trivial = (union.types.len()
                     - union
                         .types
                         .contains(&schema.arena.get_index_of_primitive(Type::Null))
+                        as usize
+                    - union
+                        .types
+                        .contains(&schema.arena.get_index_of_primitive(Type::Missing))
                         as usize)
                     > 1;
+                if not_required {
+                    write!(f, "NotRequired[")?;
+                }
                 if is_non_trivial
                     && options.to_generate_type_alias_for_union
                     && dominant.contains(&arni)
                 {
+                    let nullable = union
+                        .types
+                        .contains(&schema.arena.get_index_of_primitive(Type::Null));
+                    if nullable {
+                        write!(f, "Union[")?;
+                    }
                     if referenceable.contains(&arni) {
-                        union.fmt(f)
+                        union.fmt(f)?;
                     } else {
                         write!(
                             f,
                             r#"{}{}{}"#,
                             options.quote_type, union, options.quote_type
-                        )
+                        )?;
+                    }
+                    if nullable {
+                        // lifet up the None to the outer Union
+                        write!(f, ", None]")?;
                     }
                 } else {
-                    self.wrap(union).fmt(f)
+                    self.wrap(union).fmt(f)?;
                 }
+                if not_required {
+                    write!(f, "]")?;
+                }
+                Ok(())
             }
             Type::Array(inner) => {
                 write!(f, "List[{}]", self.wrap(inner))
@@ -213,6 +249,7 @@ impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
             Type::Date => write!(f, "datetime"),
             Type::UUID => write!(f, "UUID"),
             Type::Null => write!(f, "None"),
+            Type::Missing => write!(f, "Missing"),
             Type::Any => write!(f, "Any"),
         }
     }
@@ -229,18 +266,23 @@ impl<'i, 'c> Display for Contexted<&'i Union, Context<'c>> {
             ref types,
         } = *union;
         let the_null = schema.arena.get_index_of_primitive(Type::Null);
-        let optional = types.contains(&the_null);
-        let mut iter = types
-            .iter()
-            .cloned()
-            .filter(|&arni| arni != the_null)
-            .peekable();
+        let the_missing = schema.arena.get_index_of_primitive(Type::Missing);
+        let is_non_trivial = (union.types.len()
+            - union.types.contains(&the_null) as usize
+            - union.types.contains(&the_missing) as usize)
+            > 1;
 
-        if optional {
-            write!(f, "Optional[")?;
-        }
-        if types.len() - optional as usize > 1 {
-            // Regardless of a possible null, there are at least two other inner types.
+        let mut iter = multipeek(
+            types
+                .iter()
+                .cloned()
+                .filter(|&arni| arni != the_missing || types.len() == 1)
+                .filter(|&arni| !is_non_trivial || arni != the_null),
+        );
+
+        let _ = iter.peek();
+        if iter.peek().is_some() {
+            // Regardless of a possible Missing, there are at least two other inner types.
             write!(f, "Union[")?;
             while let Some(arni) = iter.next() {
                 // manually intersperse
@@ -251,15 +293,12 @@ impl<'i, 'c> Display for Contexted<&'i Union, Context<'c>> {
             }
             write!(f, "]")?;
         } else {
-            // Not a union anymore after dicarding Null
+            // Not a union anymore after dicarding Missing
             self.wrap(
                 iter.next()
-                    .expect("The union should have at least one inner type other than Null"),
+                    .expect("The union should have at least one inner type other than Missing"),
             )
             .fmt(f)?;
-        }
-        if optional {
-            write!(f, "]")?;
         }
         Ok(())
     }

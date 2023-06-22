@@ -24,9 +24,7 @@ impl fmt::Display for NameHints {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         self.iter()
             .map(String::as_str)
-            .intersperse("Or")
-            .map(|s| write!(fmt, "{}", s))
-            .collect()
+            .intersperse("Or").try_for_each(|s| write!(fmt, "{}", s))
     }
 }
 

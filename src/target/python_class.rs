@@ -109,7 +109,7 @@ fn write_output(
                     base_class,           // to inherit
                     wrapper.wrap(fields)  // lines of fields and types
                 )?;
-                write!(body, "\n")?;
+                writeln!(body)?;
             }
             Type::Union(Union {
                 /* ref name_hints, */
@@ -117,14 +117,34 @@ fn write_output(
                 ..
             }) => {
                 let is_non_trivial = (types.len()
+                    - types.contains(&schema.arena.get_index_of_primitive(Type::Missing)) as usize
                     - types.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize)
                     > 1;
                 if options.to_generate_type_alias_for_union && is_non_trivial {
-                    imports_from_typing.insert("Union");
-                    write!(body, "{} = {}\n", wrapper.wrap(r#type), wrapper.wrap(types))?;
-                    write!(body, "\n")?;
+                    writeln!(body, "{} = {}", wrapper.wrap(r#type), wrapper.wrap(types))?;
+                    writeln!(body)?;
                 }
-                imports_from_typing.insert(if is_non_trivial { "Union" } else { "Optional" });
+                if is_non_trivial {
+                    imports_from_typing.insert("Union");
+                }
+                if types.contains(&schema.arena.get_index_of_primitive(Type::Missing)) {
+                    // per PEP 655:
+                    // > It is an error to use Required[] or NotRequired[] in any location that is
+                    // not an item of a TypedDict.
+                    // > Such a Missing constant could also be used for other scenarios such as the
+                    // type of a variable which is only conditionally defined.
+                    //
+                    // So we use NotRequired for TypedDict and Missing otherwise.
+                    //
+                    // `NotRequired[]` is invalid. So a single `Missing` is used instead.
+                    imports_from_typing.insert(
+                        if options.kind == Kind::TypedDict || types.len() > 1 {
+                            "NotRequired"
+                        } else {
+                            "Missing"
+                        },
+                    );
+                }
             }
             Type::Array(_) => {
                 imports_from_typing.insert("List");
@@ -146,24 +166,33 @@ fn write_output(
                 ""
             }
         };
-        write!(header, "from __future__ import annotations\n")?;
+        writeln!(header, "from __future__ import annotations")?;
 
-        write!(header, "{}\n", import)?;
+        writeln!(header, "{}", import)?;
     }
     if !imports_from_typing.is_empty() {
-        write!(header, "from typing import ")?;
+        let typing_mod = if ["NotRequired", "Missing"]
+            .iter()
+            .any(|&t| imports_from_typing.contains(t))
+        {
+            "typing_extensions"
+        } else {
+            "typing"
+        };
+        write!(header, "from {} import ", typing_mod)?;
         imports_from_typing
             .into_iter()
-            .intersperse(", ")
-            .map(|e| write!(header, "{}", e))
-            .collect::<fmt::Result>()?;
-        write!(header, "\n")?;
+            .intersperse(", ").try_for_each(|e| write!(header, "{}", e))?;
+        if typing_mod == "typing_extensions" {
+            write!(header, " # For Python < 3.11, pip install typing_extensions; For Python >= 3.11, just change it to `typing`")?;
+        }
+        writeln!(header)?;
     }
     if importing_datetime {
-        write!(header, "from datetime import datetime\n")?;
+        writeln!(header, "from datetime import datetime")?;
     }
     if importing_uuid {
-        write!(header, "from uuid import UUID\n")?;
+        writeln!(header, "from uuid import UUID")?;
     }
     // write!(header, "\n")?;
     Ok(())
@@ -181,26 +210,53 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
                 map.fmt(f)
             }
             Type::Union(ref union) => {
-                if options.to_generate_type_alias_for_union && {
-                    let is_non_trivial = (union.types.len()
-                        - union
-                            .types
-                            .contains(&schema.arena.get_index_of_primitive(Type::Null))
-                            as usize)
-                        > 1;
-                    is_non_trivial
-                } {
-                    union.fmt(f)
-                } else {
-                    let optional = union
+                let is_non_trivial = (union.types.len()
+                    - union
                         .types
-                        .contains(&schema.arena.get_index_of_primitive(Type::Null));
-                    if optional {
-                        write!(f, "Optional[{}]", self.wrap(&union.types))
-                    } else {
-                        self.wrap(&union.types).fmt(f)
-                    }
+                        .contains(&schema.arena.get_index_of_primitive(Type::Null))
+                        as usize
+                    - union
+                        .types
+                        .contains(&schema.arena.get_index_of_primitive(Type::Missing))
+                        as usize)
+                    > 1;
+                let not_required = union
+                    .types
+                    .contains(&schema.arena.get_index_of_primitive(Type::Missing))
+                    && union.types.len() > 1
+                    && options.kind == Kind::TypedDict;
+                // again, per PEP 655, use NotRequired for TypedDict item, Missing otherwise
+                // <del>we assume Missing/NotRequired must come with other type in a union,
+                // so we can safely use NotRequired whenever possible</del>
+                // ...ditto </del>
+                if not_required {
+                    write!(f, "NotRequired[")?;
                 }
+                if options.to_generate_type_alias_for_union && is_non_trivial {
+                    if union
+                        .types
+                        .contains(&schema.arena.get_index_of_primitive(Type::Null))
+                    {
+                        // Say, if we have `this = int | Map | None` here
+                        // we prefer
+                        // `UnionedType = Union[int, Map]; this = Union[UnionedType, None]`
+                        // instead of
+                        // `this = UnionedType = Union[int, Map, None]`
+                        //
+                        // per PEP 655:
+                        // Optional[] is too ubiquitous to deprecate, although use of it may fade
+                        // over time in favor of the T|None notation specified by PEP 604.
+                        write!(f, "Union[{}, None]", union)?;
+                    } else {
+                        union.fmt(f)?;
+                    }
+                } else {
+                    self.wrap(&union.types).fmt(f)?;
+                }
+                if not_required {
+                    write!(f, "]")?;
+                }
+                Ok(())
             }
             Type::Array(r#type) => {
                 // dbg!(r#type);
@@ -213,29 +269,43 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
             Type::Date => write!(f, "datetime"),
             Type::UUID => write!(f, "UUID"),
             Type::Null => write!(f, "None"),
+            Type::Missing => write!(f, "Missing"),
             Type::Any => write!(f, "Any"),
         }
     }
 }
 
+// inner of Union
 impl<'i, 'c> Display for Contexted<&'c HashSet<ArenaIndex>, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: arnis,
-            context: Context(schema, _options),
+            context: Context(schema, options),
         } = self;
         // NOTE: return value is a Union of variants instead of a concatenated string name hints;
-        //       null is discarded here
+        let is_non_trivial = (arnis.len()
+            - arnis.contains(&schema.arena.get_index_of_primitive(Type::Null)) as usize
+            - arnis.contains(&schema.arena.get_index_of_primitive(Type::Missing)) as usize)
+            > 1;
         let mut iter = multipeek(
             arnis
                 .iter()
                 .cloned()
                 .map(|r#type| schema.arena.get(r#type).unwrap())
-                .filter(|&r#type| !r#type.is_null()),
+                // again, per PEP655, use NotRequired for TypedDict item, Missing otherwise
+                // and specially, a single Missing is used in place of `NotRequired[]`
+                .filter(|&r#type| {
+                    options.kind != Kind::TypedDict || !r#type.is_missing() || arnis.len() == 1
+                })
+                .filter(|&r#type| {
+                    !(options.to_generate_type_alias_for_union && is_non_trivial)
+                        || !r#type.is_null()
+                }),
         );
         let _ = iter.peek(); // Discard the first
         if iter.peek().is_some() {
-            // Regardless of possibly discarded null, there are at least two other inner types.
+            // Regardless of possibly discarded Missing, there are at least two other inner types.
+            // TODO: switch to PEP 604 (X | Y), which is only supported by Python 3.10 for now
             write!(f, "Union[")?;
             while let Some(r#type) = iter.next() {
                 // manually intersperse
@@ -246,10 +316,10 @@ impl<'i, 'c> Display for Contexted<&'c HashSet<ArenaIndex>, Context<'c>> {
             }
             write!(f, "]")
         } else {
-            // Not a union anymore after dicarding Null
+            // Not a union anymore after dicarding Missing
             self.wrap(
                 iter.next()
-                    .expect("The union should have at least one inner type other than Null"),
+                    .expect("The union should have at least one inner type other than Missing"),
             )
             .fmt(f)
         }
@@ -264,15 +334,15 @@ impl<'i, 'c> Display for Contexted<&'c IndexMap<String, ArenaIndex>, Context<'c>
         } = self;
 
         // NOTE: return value are lines of field_name: field_type instead of concatenated hints;
-        let mut iter = fields
+        let iter = fields
             .iter()
             .map(|(key, &r#type)| (key, schema.arena.get(r#type).unwrap()));
         // .peekable();
-        while let Some((key, r#type)) = iter.next() {
+        for (key, r#type) in iter {
             // // manually intersperse
             write!(f, "{}{}: {}", options.indentation, key, self.wrap(r#type))?;
             // if iter.peek().is_none() {
-            write!(f, "\n")?;
+            writeln!(f)?;
             // }
         }
         Ok(())

@@ -14,7 +14,7 @@ use super::Type;
 #[derive(Debug)]
 pub struct TypeArena {
     arena: Arena<Type>,
-    primitive_types: [ArenaIndex; 8],
+    primitive_types: [ArenaIndex; 9],
 }
 
 impl TypeArena {
@@ -28,6 +28,7 @@ impl TypeArena {
             arena.insert(Type::Date),
             arena.insert(Type::UUID),
             arena.insert(Type::Null),
+            arena.insert(Type::Missing),
             arena.insert(Type::Any),
         ];
         TypeArena {
@@ -110,7 +111,7 @@ pub trait ITypeArena {
     fn remove(&mut self, i: ArenaIndex) -> Option<Type>;
     fn remove_in_favor_of(&mut self, i: ArenaIndex, j: ArenaIndex) -> Option<Type>;
     fn insert(&mut self, value: Type) -> ArenaIndex;
-    fn get_primitive_types(&self) -> &[ArenaIndex; 8];
+    fn get_primitive_types(&self) -> &[ArenaIndex; 9];
 
     fn get_index_of_primitive(&self, r#type: Type) -> ArenaIndex {
         let primitive_types = self.get_primitive_types();
@@ -122,7 +123,8 @@ pub trait ITypeArena {
             Type::Date => primitive_types[4],
             Type::UUID => primitive_types[5],
             Type::Null => primitive_types[6],
-            Type::Any => primitive_types[7],
+            Type::Missing => primitive_types[7],
+            Type::Any => primitive_types[8],
             _ => panic!("Not a primitive type: {:?}", r#type),
         }
     }
@@ -156,7 +158,7 @@ impl ITypeArena for TypeArena {
     }
 
     #[inline(always)]
-    fn get_primitive_types(&self) -> &[ArenaIndex; 8] {
+    fn get_primitive_types(&self) -> &[ArenaIndex; 9] {
         &self.primitive_types
     }
 }
