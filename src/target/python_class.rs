@@ -59,7 +59,7 @@ fn write_output(
     options: &PythonClass,
     header: &mut dyn Write,
     body: &mut dyn Write,
-    _additional: &mut dyn Write,
+    additional: &mut dyn Write,
 ) -> fmt::Result {
     let wrapper = with_context((), Context(schema, options)); // helper
 
@@ -171,20 +171,28 @@ fn write_output(
         writeln!(header, "{}", import)?;
     }
     if !imports_from_typing.is_empty() {
+        if imports_from_typing.contains("Union") {
+            writeln!(additional, "# 💡 Starting from Python 3.10 (PEP 604), `Union[A, B]` can be simplified as `A | B`\n")?;
+        }
         let typing_mod = if ["NotRequired", "Missing"]
             .iter()
             .any(|&t| imports_from_typing.contains(t))
         {
+            // PEP 655 for now
+            writeln!(
+                additional,
+                r#"# 💡 `NotRequired` or `Missing` are introduced since Python 3.11 (PEP 655).
+#   `typing_extensions` is imported above for backwards compatibility.
+#   For Python < 3.11, pip install typing_extensions. O.W., just change it to `typing`\n"#
+            )?;
             "typing_extensions"
         } else {
             "typing"
         };
+
         write!(header, "from {} import ", typing_mod)?;
         Itertools::intersperse(imports_from_typing.into_iter(), ", ")
             .try_for_each(|e| write!(header, "{}", e))?;
-        if typing_mod == "typing_extensions" {
-            write!(header, " # For Python < 3.11, pip install typing_extensions; For Python >= 3.11, just change it to `typing`")?;
-        }
         writeln!(header)?;
     }
     if importing_datetime {

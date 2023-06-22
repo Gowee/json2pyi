@@ -45,7 +45,7 @@ fn write_output(
     options: &PythonTypedDict,
     header: &mut dyn Write,
     body: &mut dyn Write,
-    _additional: &mut dyn Write,
+    additional: &mut dyn Write,
 ) -> fmt::Result {
     let mut imports_from_typing = HashSet::new();
     let mut importing_base_class_or_class_decorators = false;
@@ -147,7 +147,26 @@ fn write_output(
     }
 
     if importing_base_class_or_class_decorators || !imports_from_typing.is_empty() {
-        write!(header, "from typing import ")?;
+        if imports_from_typing.contains("Union") {
+            writeln!(additional, "# 💡 Starting from Python 3.10 (PEP 604), `Union[A, B]` can be simplified as `A | B`\n")?;
+        }
+        let typing_mod = if ["NotRequired", "Missing"]
+            .iter()
+            .any(|&t| imports_from_typing.contains(t))
+        {
+            // PEP 655 for now
+            writeln!(
+                additional,
+                r#"# 💡 `NotRequired` or `Missing` are introduced since Python 3.11 (PEP 655).
+#   `typing_extensions` is imported above for backwards compatibility.
+#   For Python < 3.11, pip install typing_extensions. O.W., just change it to `typing`\n"#
+            )?;
+            "typing_extensions"
+        } else {
+            "typing"
+        };
+
+        write!(header, "from {} import ", typing_mod)?;
         if importing_base_class_or_class_decorators {
             write!(header, "TypedDict")?;
             if !imports_from_typing.is_empty() {
