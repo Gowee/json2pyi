@@ -1,10 +1,12 @@
+![CI main workflow badge](https://github.com/Gowee/json2pyi/actions/workflows/main.yml/badge.svg)
+
 # JSON to Python Types
 
 *json2pyi* infers a type schema from a sample JSON file and generates Python type definitions ([`dataclass`](https://docs.python.org/3/library/dataclasses.html), Pydantic [`BaseModel`](https://pydantic-docs.helpmanual.io/usage/models/) or PEP-589 [`TypedDict`](https://www.python.org/dev/peps/pep-0589/)) accordingly. It runs in browser, requiring no installation.
 
 <!--Even though the project is still an MVP, it is expected to be stable & usable as a Web app. Please do not hesitate to raise an issue if you find any problems.-->
 
-__Available online__: <https://json2pyi.pages.dev>
+__🌐 Available online 🔗__: <https://json2pyi.pages.dev>
 
 ## Example
 
