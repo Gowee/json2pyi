@@ -99,12 +99,27 @@ impl Schema {
     }
 
     /// Get arena indices of all types that appears more than one time in the schema tree. The root
-    /// type is included anyway.
+    /// map or the direct descendant inner map(s) (of the inner union) of the root array are included anyway.
     pub fn get_dominant(&self) -> IndexSet<ArenaIndex> {
         let mut stack = vec![self.root];
         let mut seen = HashSet::<ArenaIndex>::new();
-        let mut dominant = IndexSet::<ArenaIndex>::new();
-        dominant.insert(self.root);
+        let mut dominant: IndexSet<ArenaIndex> = IndexSet::<ArenaIndex>::new();
+        if let &Type::Array(inneri) = self.arena.get(self.root).unwrap() {
+            let inner = self.arena.get(inneri).unwrap();
+            if let Some(union) = inner.as_union() {
+                for &child in union.types.iter() {
+                    if self.arena.get(child).unwrap().is_map() {
+                        dominant.insert(child);
+                    }
+                }
+            } else if inner.is_map() {
+                dominant.insert(inneri);
+            }
+        } else {
+            // debug_assert!(root_type.is_map());
+            // TODO: how to handle primitive types here?
+            dominant.insert(self.root);
+        }
 
         while let Some(curr) = stack.pop() {
             let mut pick = |r#type: ArenaIndex| {

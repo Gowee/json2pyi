@@ -54,6 +54,7 @@ fn write_output(
     let mut importing_uuid = false;
 
     let dominant = if options.to_nest_when_possible {
+        // TODO: root array type is ignored for now
         schema.get_dominant()
     } else {
         schema.iter_topdown().collect()
