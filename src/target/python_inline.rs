@@ -24,7 +24,6 @@ pub struct PythonTypedDict {
     pub quote_type: Quote,
     pub to_generate_type_alias_for_union: bool,
     pub to_nest_when_possible: bool,
-    pub to_mark_optional_as_not_total: bool,
 }
 
 // #[typetag::serde]
@@ -308,9 +307,8 @@ impl<'i, 'c> Display for Contexted<&'i Map, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: map,
-            context: Context(schema, options, _dominant, _referenceable),
+            context: Context(_schema, options, _dominant, _referenceable),
         } = self;
-        let mut is_total = true;
         write!(
             f,
             "TypedDict({}{}{}, {{",
@@ -320,14 +318,6 @@ impl<'i, 'c> Display for Contexted<&'i Map, Context<'c>> {
 
         // manually intersperse
         while let Some((key, arni)) = iter.next() {
-            let r#type = schema.arena.get(arni).unwrap();
-            if let Type::Union(Union { ref types, .. }) = *r#type {
-                if options.to_mark_optional_as_not_total
-                    && types.contains(&schema.arena.get_index_of_primitive(Type::Null))
-                {
-                    is_total = false;
-                }
-            }
             write!(
                 f,
                 "{}{}{}: {}",
@@ -341,10 +331,6 @@ impl<'i, 'c> Display for Contexted<&'i Map, Context<'c>> {
             }
         }
         write!(f, "}}")?;
-        if !is_total {
-            // NOTE: optional is for a field, but totality is only for its parental type in whole
-            write!(f, ", total=False")?;
-        }
         write!(f, ")")?;
         Ok(())
     }

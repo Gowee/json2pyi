@@ -26,7 +26,6 @@ fn test_quicktype() {
         quote_type: Quote::Double,
         to_generate_type_alias_for_union: true,
         to_nest_when_possible: true,
-        to_mark_optional_as_not_total: false,
     }
     .generate(&schema);
     println!("{}", output.header);

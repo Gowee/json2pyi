@@ -6,7 +6,7 @@ use crate::schema::Schema;
 
 mod python_class;
 pub use python_class::{Kind as PythonKind, PythonClass};
-// mod rust;
+// mod rust; // unimplemented
 mod python_inline;
 pub use python_inline::PythonTypedDict;
 
