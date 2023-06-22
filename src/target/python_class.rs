@@ -172,7 +172,8 @@ fn write_output(
     }
     if !imports_from_typing.is_empty() {
         if imports_from_typing.contains("Union") {
-            writeln!(additional, "# 💡 Starting from Python 3.10 (PEP 604), `Union[A, B]` can be simplified as `A | B`\n")?;
+            writeln!(additional, "# 💡 Starting from Python 3.10 (PEP 604), `Union[A, B]` can be simplified as `A | B`
+")?;
         }
         let typing_mod = if ["NotRequired", "Missing"]
             .iter()
@@ -182,8 +183,9 @@ fn write_output(
             writeln!(
                 additional,
                 r#"# 💡 `NotRequired` or `Missing` are introduced since Python 3.11 (PEP 655).
-#   `typing_extensions` is imported above for backwards compatibility.
-#   For Python < 3.11, pip install typing_extensions. O.W., just change it to `typing`\n"#
+#    `typing_extensions` is imported above for backwards compatibility.
+#    For Python < 3.11, pip install typing_extensions. O.W., just change it to `typing`
+"#
             )?;
             "typing_extensions"
         } else {
