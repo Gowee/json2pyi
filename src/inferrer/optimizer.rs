@@ -217,20 +217,16 @@ impl<'a> DerefMut for TypeArenaWithDSU<'a> {
 impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
     #[inline(always)]
     fn get(&self, i: ArenaIndex) -> Option<&Type> {
-        
         // dbg!(i, &t, self.find_representative(i));
-        self
-            .find_representative(i) // if it is in the DSU
+        self.find_representative(i) // if it is in the DSU
             .or(Some(i)) // O.W. it should be a newly added type during unioning
             .and_then(|arni| self.arena.get(arni)) // TODO: clean up
     }
 
     #[inline(always)]
     fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut Type> {
-        
         // dbg!(i, &t);
-        self
-            .find_representative(i) // if it is in the DSU
+        self.find_representative(i) // if it is in the DSU
             .or(Some(i)) // O.W. it should be a newly added type during unioning
             .and_then(move |arni| self.arena.get_mut(arni))
         // FIX: borrowing issue

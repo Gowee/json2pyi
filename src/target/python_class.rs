@@ -180,9 +180,8 @@ fn write_output(
             "typing"
         };
         write!(header, "from {} import ", typing_mod)?;
-        imports_from_typing
-            .into_iter()
-            .intersperse(", ").try_for_each(|e| write!(header, "{}", e))?;
+        Itertools::intersperse(imports_from_typing.into_iter(), ", ")
+            .try_for_each(|e| write!(header, "{}", e))?;
         if typing_mod == "typing_extensions" {
             write!(header, " # For Python < 3.11, pip install typing_extensions; For Python >= 3.11, just change it to `typing`")?;
         }
@@ -198,7 +197,7 @@ fn write_output(
     Ok(())
 }
 
-impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
+impl<'i, 'c> Display for Contexted<&'i Type, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: r#type,
@@ -276,7 +275,7 @@ impl<'i, 'c> Display for Contexted<&'c Type, Context<'c>> {
 }
 
 // inner of Union
-impl<'i, 'c> Display for Contexted<&'c HashSet<ArenaIndex>, Context<'c>> {
+impl<'i, 'c> Display for Contexted<&'i HashSet<ArenaIndex>, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: arnis,
@@ -298,8 +297,9 @@ impl<'i, 'c> Display for Contexted<&'c HashSet<ArenaIndex>, Context<'c>> {
                     options.kind != Kind::TypedDict || !r#type.is_missing() || arnis.len() == 1
                 })
                 .filter(|&r#type| {
-                    !(options.to_generate_type_alias_for_union && is_non_trivial)
-                        || !r#type.is_null()
+                    !(options.to_generate_type_alias_for_union
+                        && is_non_trivial
+                        && r#type.is_null())
                 }),
         );
         let _ = iter.peek(); // Discard the first
@@ -326,7 +326,7 @@ impl<'i, 'c> Display for Contexted<&'c HashSet<ArenaIndex>, Context<'c>> {
     }
 }
 
-impl<'i, 'c> Display for Contexted<&'c IndexMap<String, ArenaIndex>, Context<'c>> {
+impl<'i, 'c> Display for Contexted<&'i IndexMap<String, ArenaIndex>, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: fields,

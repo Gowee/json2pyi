@@ -23,8 +23,7 @@ pub struct Schema {
     pub root: ArenaIndex,
 }
 
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub enum Type {
     // TODO: doc
     Map(Map),
@@ -166,48 +165,27 @@ impl Type {
     }
 
     pub fn is_null(&self) -> bool {
-        match *self {
-            Self::Null => true,
-            _ => false,
-        }
+        matches!(*self, Self::Null)
     }
 
     pub fn is_missing(&self) -> bool {
-        match *self {
-            Self::Missing => true,
-            _ => false,
-        }
+        matches!(*self, Self::Missing)
     }
     pub fn is_bool(&self) -> bool {
-        match *self {
-            Self::Bool => true,
-            _ => false,
-        }
+        matches!(*self, Self::Bool)
     }
     pub fn is_int(&self) -> bool {
-        match *self {
-            Self::Int => true,
-            _ => false,
-        }
+        matches!(*self, Self::Int)
     }
     pub fn is_float(&self) -> bool {
-        match *self {
-            Self::Float => true,
-            _ => false,
-        }
+        matches!(*self, Self::Float)
     }
     pub fn is_string(&self) -> bool {
-        match *self {
-            Self::String => true,
-            _ => false,
-        }
+        matches!(*self, Self::String)
     }
 
     pub fn is_any(&self) -> bool {
-        match *self {
-            Self::Any => true,
-            _ => false,
-        }
+        matches!(*self, Self::Any)
     }
 
     pub fn into_array(self) -> Option<ArenaIndex> {
@@ -253,5 +231,3 @@ impl Type {
         self.as_union().is_some()
     }
 }
-
-

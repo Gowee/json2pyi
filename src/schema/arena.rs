@@ -17,6 +17,12 @@ pub struct TypeArena {
     primitive_types: [ArenaIndex; 9],
 }
 
+impl Default for TypeArena {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TypeArena {
     pub fn new() -> Self {
         let mut arena = Arena::<Type>::new();

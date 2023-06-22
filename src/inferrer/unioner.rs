@@ -54,7 +54,7 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
                     .expect("The type should be present in the arena during unioning")
                 {
                     Type::Union(_) => {
-                        let Union { name_hints, types } = if first_union.is_none() {
+                        let Union { name_hints, types } = if let Some(..) = first_union {
                             first_union = Some(r#type);
                             mem::take(self.arena.get_mut(r#type).unwrap())
                                 .into_union()
@@ -80,7 +80,7 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
             match *self.arena.get(r#type).unwrap() {
                 Type::Map(_) => {
                     let map;
-                    if first_map.is_none() {
+                    if let Some(..) = first_map {
                         // If this is the first map in the union, just take its inner out so that
                         // its slot can be reused again with ArenaIndex left intact.
                         first_map = Some(r#type);

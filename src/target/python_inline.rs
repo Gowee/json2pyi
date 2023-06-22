@@ -154,9 +154,8 @@ fn write_output(
                 write!(header, ", ")?;
             }
         }
-        imports_from_typing
-            .into_iter()
-            .intersperse(", ").try_for_each(|e| write!(header, "{}", e))?;
+        Itertools::intersperse(imports_from_typing.into_iter(), ", ")
+            .try_for_each(|e| write!(header, "{}", e))?;
         writeln!(header)?;
     }
     if importing_datetime {
@@ -169,7 +168,7 @@ fn write_output(
     Ok(())
 }
 
-impl<'i, 'c> Display for Contexted<ArenaIndex, Context<'c>> {
+impl<'c> Display for Contexted<ArenaIndex, Context<'c>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let &Contexted {
             inner: arni,

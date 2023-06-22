@@ -28,7 +28,7 @@ fn test_quicktype() {
         to_nest_when_possible: true,
         to_mark_optional_as_not_total: false,
     }
-    .generate(&mut schema);
+    .generate(&schema);
     println!("{}", output.header);
     println!("{}", output.body);
     println!("{}", now.elapsed().as_millis());
@@ -50,7 +50,7 @@ fn test_githubstatus() {
         to_generate_type_alias_for_union: false,
         indentation: Indentation::Space(4),
     }
-    .generate(&mut schema);
+    .generate(&schema);
 }
 
 #[test]
@@ -69,5 +69,5 @@ fn test_tree_recursion() {
         to_generate_type_alias_for_union: false,
         indentation: Indentation::Space(4),
     }
-    .generate(&mut schema);
+    .generate(&schema);
 }
