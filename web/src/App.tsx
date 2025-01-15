@@ -130,6 +130,7 @@ class App extends Component<Props, State> {
       output && this.setState({ output })
     } catch (e) {
       this.setState({ output: (e as any).toString() })
+      console.error(e)
     }
   }
 
