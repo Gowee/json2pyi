@@ -272,6 +272,7 @@ impl<'c> Display for Contexted<ArenaIndex, Context<'c>> {
             Type::Null => write!(f, "None"),
             Type::Missing => write!(f, "Missing"),
             Type::Any => write!(f, "Any"),
+            Type::Undetermined => unreachable!()
         }
     }
 }

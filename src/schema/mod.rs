@@ -37,8 +37,9 @@ pub enum Type {
     UUID,
     Null,
     Missing,
-    #[default]
     Any,
+    #[default]
+    Undetermined,
 }
 
 pub struct TopdownIter<'a> {

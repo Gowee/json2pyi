@@ -283,6 +283,7 @@ impl<'i, 'c> Display for Contexted<&'i Type, Context<'c>> {
             Type::Null => write!(f, "None"),
             Type::Missing => write!(f, "Missing"),
             Type::Any => write!(f, "Any"),
+            Type::Undetermined => unreachable!()
         }
     }
 }

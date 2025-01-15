@@ -44,7 +44,11 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
         // TODO: keep first_array?
 
         // Expand any nested unions. Due to borrow issues, collecting is inevitable
-        let types: Vec<ArenaIndex> = types
+        let mut types: Vec<ArenaIndex> = types.into_iter().collect();
+        let mut changed = true;
+        while changed {
+            changed = false;
+            types = types
             .into_iter()
             .flat_map(|r#type| {
                 // dbg!(r#type);
@@ -54,10 +58,12 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
                     .expect("The type should be present in the arena during unioning")
                 {
                     Type::Union(_) => {
+                        changed = true;
                         let Union { name_hints, types } = if let Some(first_union) = first_union {
-                            self.arena
+                            dbg!(r#type, first_union);
+                            dbg!(self.arena
                                 .remove_in_favor_of(r#type, first_union)
-                                .unwrap()
+                                .unwrap())
                                 .into_union()
                                 .unwrap() // remove & expand the union
                         } else {
@@ -75,6 +81,7 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
             .collect::<HashSet<_>>()
             .into_iter()
             .collect();
+        }
         for r#type in types {
             // dbg!(r#type, self.arena.get(r#type));
             match *self.arena.get(r#type).unwrap() {
@@ -111,6 +118,7 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
                     arrays.push(inner);
                 }
                 Type::Union(_) => unreachable!(), // union should have been expanded above
+                Type::Undetermined => unreachable!(),
                 _ => {
                     // O.W. it is a primitive type. Then just add it to the union as is.
                     // Note: SPECIAL CASE:
@@ -162,6 +170,7 @@ impl<'a, T: ITypeArena> UnionerClosure<'a, T> {
                 // TODO: should slot be removed from arena here?
                 unioned.insert(self.arena.get_index_of_primitive(Type::Any)); // Any
             } else {
+                dbg!(map_count);
                 let slot = first_map.unwrap();
                 *self.arena.get_mut(slot).unwrap() = Type::Map(Map {
                     name_hints: map_name_hints,

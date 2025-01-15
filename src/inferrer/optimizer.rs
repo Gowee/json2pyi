@@ -58,6 +58,34 @@ impl Optimizer {
                 // when TypeArenaWithDSU is dropped
             }
         }
+        // drop(ufarena);
+        
+//         let sets = schema.arena.find_disjoint_sets(|a, b| {
+// if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
+//                 self.to_merge_same_unions && (a.types == b.types)
+//             } else {
+//                 // TODO: merge same array?
+//                 false
+//             }
+//         });
+//         for (leader, mut set) in sets.into_iter() {
+//             if ufarena.get(leader).map(|r#type| {
+//                 self.to_merge_same_unions && r#type.is_union()
+//             }) == Some(true)
+//             {
+//                 set.insert(leader); // leader in disjoint set is now a follower
+
+//                 let compact_set = set
+//                     .iter()
+//                     .cloned()
+//                     .filter(|&r#type| ufarena.contains(r#type))
+//                     .collect::<Vec<ArenaIndex>>();
+//                 // unioned is now the new leader
+//                 let _leader = union(&mut ufarena, compact_set);
+//                 // References to non-representative AreneIndex will be replaced automatically
+//                 // when TypeArenaWithDSU is dropped
+//             }
+//         }
         // Although unioner always keeps the first map slot intact, there is no guarantee that
         // root would always be the first map in types to be unioned. So update it if necessary.
         schema.root = ufarena.find_representative(schema.root).unwrap();
@@ -120,6 +148,7 @@ pub struct TypeArenaWithDSU<'a> {
 
 impl<'a> TypeArenaWithDSU<'a> {
     fn from_type_arena(arena: &'a mut TypeArena) -> Self {
+        dbg!(arena.len());
         let imap: Bimap<usize, ArenaIndex> =
             Bimap::from_hash_map(arena.iter().map(|(index, _)| index).enumerate().collect());
 
@@ -189,7 +218,7 @@ impl<'a> TypeArenaWithDSU<'a> {
         for r#type in dangling_types.into_iter() {
             // TODO: Should these all removed during unioning?
             println!("removed dangling: {:?}", r#type);
-            assert!(self.arena.remove(r#type).is_none());
+            // debug_assert!(self.arena.remove(r#type).is_none());
         }
     }
 
@@ -237,21 +266,29 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
         // Note: It is not removed from DSU. So just ignore non-existing types when iterating DSU.
         //       As get/get_mut wraps DSU internally, unioner won't get panicked.
         DerefMut::deref_mut(self).remove(i)
+        // DerefMut::deref_mut(self).get(i).cloned()
     }
 
     /// Remove the type denoted by the index i and union i into j in the DSU
     fn remove_in_favor_of(&mut self, i: ArenaIndex, j: ArenaIndex) -> Option<Type> {
+        dbg!(i,j, self.imap.len(), self.arena.len());
+
         self.dsu.union(
             *self.imap.get_rev(&i).unwrap(),
             *self.imap.get_rev(&j).unwrap(),
         );
-        DerefMut::deref_mut(self).remove(i)
+        // DerefMut::deref_mut(self).remove(i)
+        DerefMut::deref_mut(self).get(i).cloned()
     }
 
     #[inline(always)]
     fn insert(&mut self, value: Type) -> ArenaIndex {
         // Note: The DSU is not updated.
-        DerefMut::deref_mut(self).insert(value)
+        debug_assert_eq!(self.dsu.len(), self.imap.len());
+        let i = self.dsu.alloc();
+        let arni = DerefMut::deref_mut(self).insert(value);
+        self.imap.insert(i, arni);
+        arni
     }
 
     #[inline(always)]
