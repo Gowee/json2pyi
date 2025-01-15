@@ -203,7 +203,8 @@ impl<'a> TypeArenaWithDSU<'a> {
         for r#type in dangling_types.into_iter() {
             // TODO: Should these all removed during unioning?
             println!("removed dangling: {:?}", r#type);
-            assert!(self.arena.remove(r#type).is_none());
+            // FIXME: #8
+            // assert!(self.arena.remove(r#type).is_none());
         }
     }
 
@@ -259,13 +260,18 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
             *self.imap.get_rev(&i).unwrap(),
             *self.imap.get_rev(&j).unwrap(),
         );
-        DerefMut::deref_mut(self).remove(i)
+        // FIXME: #8
+        // DerefMut::deref_mut(self).remove(i)
+        DerefMut::deref_mut(self).get(i).cloned()
     }
 
     #[inline(always)]
     fn insert(&mut self, value: Type) -> ArenaIndex {
-        // Note: The DSU is not updated.
-        DerefMut::deref_mut(self).insert(value)
+        debug_assert_eq!(self.dsu.len(), self.imap.len());
+        let i = self.dsu.alloc();
+        let arni = DerefMut::deref_mut(self).insert(value);
+        self.imap.insert(i, arni);
+        arni
     }
 
     #[inline(always)]

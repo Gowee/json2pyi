@@ -70,3 +70,41 @@ fn test_tree_recursion() {
     }
     .generate(&schema);
 }
+
+#[test]
+fn test_issue8_1() {
+    let data = include_str!("../tests/data/issue8.json");
+    let v: Value = serde_json::from_str(data).unwrap();
+
+    let mut schema = infer_from_json(&v, None);
+    Optimizer {
+        to_merge_similar_datatypes: true,
+        to_merge_same_unions: true,
+    }
+    .optimize(&mut schema);
+    let _output = PythonClass {
+        kind: PythonKind::Dataclass,
+        to_generate_type_alias_for_union: false,
+        indentation: Indentation::Space(4),
+    }
+    .generate(&schema);
+}
+
+#[test]
+fn test_issue8_2() {
+    let data = include_str!("../tests/data/issue8-2.json");
+    let v: Value = serde_json::from_str(data).unwrap();
+
+    let mut schema = infer_from_json(&v, None);
+    Optimizer {
+        to_merge_similar_datatypes: true,
+        to_merge_same_unions: true,
+    }
+    .optimize(&mut schema);
+    let _output = PythonClass {
+        kind: PythonKind::Dataclass,
+        to_generate_type_alias_for_union: false,
+        indentation: Indentation::Space(4),
+    }
+    .generate(&schema);
+}

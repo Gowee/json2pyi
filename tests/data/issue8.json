@@ -1,0 +1,41 @@
+{
+    "tests": {
+        "0": {
+            "display": "3",
+            "token": "#SteamDeckVerified_TestResult_DefaultControllerConfigNotFullyFunctional"
+        },
+        "1": {
+            "display": "3",
+            "token": "#SteamDeckVerified_TestResult_TextInputDoesNotAutomaticallyInvokesKeyboard"
+        },
+        "2": {
+            "display": "3",
+            "token": "#SteamDeckVerified_TestResult_NativeResolutionNotSupported"
+        }
+    },
+    "launch": {
+        "0": {
+            "arguments": "-steam -game cstrike",
+            "config": {
+                "oslist": "windows"
+            },
+            "executable": "hl.exe",
+            "vacmodulefilename": "resource\\sourceinit.dat"
+        },
+        "1": {
+            "arguments": "-steam -game cstrike",
+            "config": {
+                "oslist": "macos"
+            },
+            "executable": "hl.sh",
+            "vacmodulefilename": "resource\\sourceinit_macos.dat"
+        },
+        "2": {
+            "arguments": "-steam -game cstrike",
+            "config": {
+                "oslist": "linux"
+            },
+            "executable": "hl.sh"
+        }
+    }
+}
