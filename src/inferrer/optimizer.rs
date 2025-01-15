@@ -2,7 +2,7 @@ use bidirectional_map::Bimap;
 use disjoint_sets::UnionFind;
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     mem,
     ops::{Deref, DerefMut, Drop},
 };
@@ -25,43 +25,34 @@ impl Optimizer {
     }
 
     pub fn optimize(&self, schema: &mut Schema) {
+        // <del>
         // Note: Merging maps and unions at the same time may have produced results different from
         // seperate merging (find map sets - merge - flatten - find union sets - merge - flatten).
         // For simplicity, just take the first way.
-        let sets = schema.arena.find_disjoint_sets(|a, b| {
-            if let (Some(a), Some(b)) = (a.as_map(), b.as_map()) {
-                self.to_merge_similar_datatypes && a.is_similar_to(b)
-            } else if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
-                self.to_merge_same_unions && (a.types == b.types)
-            } else {
-                // TODO: merge same array?
-                false
-            }
-        });
-        let mut ufarena = TypeArenaWithDSU::from_type_arena(&mut schema.arena);
-        for (leader, mut set) in sets.into_iter() {
-            if ufarena.get(leader).map(|r#type| {
-                (self.to_merge_similar_datatypes && r#type.is_map())
-                    || (self.to_merge_same_unions && r#type.is_union())
-            }) == Some(true)
-            {
-                set.insert(leader); // leader in disjoint set is now a follower
-
-                let compact_set = set
-                    .iter()
-                    .cloned()
-                    .filter(|&r#type| ufarena.contains(r#type))
-                    .collect::<Vec<ArenaIndex>>();
-                // unioned is now the new leader
-                let _leader = union(&mut ufarena, compact_set);
-                // References to non-representative AreneIndex will be replaced automatically
-                // when TypeArenaWithDSU is dropped
-            }
-        }
-        // Although unioner always keeps the first map slot intact, there is no guarantee that
-        // root would always be the first map in types to be unioned. So update it if necessary.
-        schema.root = ufarena.find_representative(schema.root).unwrap();
-        // arena.flatten();
+        // </del>
+        // Merging maps and unions in one pass leads to the issue #8. The reason might be some
+        // reentrancy issues in union (mem::replace?).
+        // TODO: merge same array?
+        schema.root = do_merge(
+            schema,
+            schema.arena.find_disjoint_sets(|a, b| {
+                if let (Some(a), Some(b)) = (a.as_map(), b.as_map()) {
+                    self.to_merge_similar_datatypes && a.is_similar_to(b)
+                } else {
+                    false
+                }
+            }),
+        );
+        schema.root = do_merge(
+            schema,
+            schema.arena.find_disjoint_sets(|a, b| {
+                if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
+                    self.to_merge_same_unions && (a.types == b.types)
+                } else {
+                    false
+                }
+            }),
+        );
     }
 
     /* pub fn merge_same_union(&self, schema: &mut Schema) {
@@ -102,6 +93,29 @@ impl Optimizer {
         // arena.flatten();
     }
     */
+}
+
+fn do_merge(schema: &mut Schema, sets: HashMap<ArenaIndex, HashSet<ArenaIndex>>) -> ArenaIndex {
+    let mut ufarena = TypeArenaWithDSU::from_type_arena(&mut schema.arena);
+    for (leader, mut set) in sets.into_iter() {
+        set.insert(leader); // leader in disjoint set is now a follower
+        if set.len() <= 1 {
+            continue;
+        }
+        let compact_set = set
+            .iter()
+            .cloned()
+            .filter(|&r#type| ufarena.contains(r#type))
+            .collect::<Vec<ArenaIndex>>();
+        // unioned is now the new leader
+        let _leader = union(&mut ufarena, compact_set);
+        // References to non-representative AreneIndex will be replaced automatically
+        // when TypeArenaWithDSU is dropped
+    }
+    // Although unioner always keeps the first map slot intact, there is no guarantee that
+    // root would always be the first map in types to be unioned. So update it if necessary.
+    ufarena.find_representative(schema.root).unwrap()
+    // arena.flatten();
 }
 
 /// A wrapper around `&mut TypeArena` with a Disjoint Set Union. `get` and `get_mut` are wrapped
