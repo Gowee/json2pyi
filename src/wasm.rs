@@ -1,4 +1,5 @@
 use wasm_bindgen::prelude::*;
+use console_error_panic_hook;
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -34,6 +35,7 @@ pub enum Target {
 
 #[wasm_bindgen]
 pub fn json2type(json: &str, target: Target) -> Option<String> {
+    console_error_panic_hook::set_once();
     let v: Value = serde_json::from_str(json).ok()?;
     let mut schema = infer_from_json(&v, None);
     Optimizer {

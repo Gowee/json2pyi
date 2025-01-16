@@ -31,7 +31,7 @@ impl Optimizer {
         // For simplicity, just take the first way.
         // </del>
         // Merging maps and unions in one pass leads to the issue #8. The reason might be some
-        // reentrancy issues in union (mem::replace?).
+        // reentrancy issues in union (mem::replace?). TODO: figure out why
         // TODO: merge same array?
         schema.root = do_merge(
             schema,
@@ -54,45 +54,6 @@ impl Optimizer {
             }),
         );
     }
-
-    /* pub fn merge_same_union(&self, schema: &mut Schema) {
-        let unions_sets = schema.arena.find_disjoint_sets(|a, b| {
-            if let (Some(a), Some(b)) = (a.as_union(), b.as_union()) {
-                a.types == b.types
-            // } else if let (Some(a), Some(b)) = (a.as_array(), b.as_array()) {
-            //     a == b
-            } else {
-                false
-            }
-        });
-        // dbg!(&unions_sets);
-        let mut arena = TypeArenaWithDSU::from_type_arena(&mut schema.arena);
-        {
-            for (leader, mut set) in unions_sets.into_iter() {
-                if Some(true)
-                    == arena
-                        .get(leader)
-                        .map(|r#type| r#type.is_union() /*|| r#type.is_array()*/)
-                {
-                    set.insert(leader); // leader in disjoint set is now a follower
-                    let compact_set = set
-                        .iter()
-                        .cloned()
-                        .filter(|&r#type| arena.contains(r#type))
-                        .collect::<Vec<ArenaIndex>>();
-                    // dbg!(&compact_set
-                    //     .iter()
-                    //     .map(|&arni| arena.get(arni).unwrap())
-                    //     .collect::<Vec<&Type>>());
-                    // unioned is now the new leader
-                    let _leader = union(&mut arena, compact_set);
-                }
-            }
-        }
-        schema.root = arena.find_representative(schema.root).unwrap();
-        // arena.flatten();
-    }
-    */
 }
 
 fn do_merge(schema: &mut Schema, sets: HashMap<ArenaIndex, HashSet<ArenaIndex>>) -> ArenaIndex {
@@ -203,7 +164,7 @@ impl<'a> TypeArenaWithDSU<'a> {
         for r#type in dangling_types.into_iter() {
             // TODO: Should these all removed during unioning?
             println!("removed dangling: {:?}", r#type);
-            // FIXME: #8
+            // FIXME: temporary fix for #8
             // assert!(self.arena.remove(r#type).is_none());
         }
     }
@@ -260,7 +221,7 @@ impl<'a> ITypeArena for TypeArenaWithDSU<'a> {
             *self.imap.get_rev(&i).unwrap(),
             *self.imap.get_rev(&j).unwrap(),
         );
-        // FIXME: #8
+        // FIXME: temporary fix for #8
         // DerefMut::deref_mut(self).remove(i)
         DerefMut::deref_mut(self).get(i).cloned()
     }

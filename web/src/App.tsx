@@ -125,8 +125,13 @@ class App extends Component<Props, State> {
     catch (_e) {
       return
     }
+    try {
       const output = json2type(this.input, Target[this.state.targetSelected])
       output && this.setState({ output })
+    } catch (e) {
+      this.setState({ output: "# ERROR:\n" + (e as any).toString() })
+      console.error(e)
+    }
   }
 
   handleTargetIconClick(event: any) {
