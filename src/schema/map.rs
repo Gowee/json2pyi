@@ -22,8 +22,21 @@ impl Map {
     /// Compare the structure of two `Map`s to determine if they are similar enough to be merged
     pub fn is_similar_to(&self, other: &Self) -> bool {
         // TODO: take value type into consideration
-        let a: HashSet<_> = self.fields.iter().map(|(name, _)| name).collect();
-        let b: HashSet<_> = other.fields.iter().map(|(name, _)| name).collect();
+        let a: HashSet<_> = self
+            .fields
+            .iter()
+            .map(|(name, _)| name)
+            // filter out dictionary-style array
+            // e.g. https://github.com/Gowee/json2pyi/issues/8#issue-1835399209
+            .filter(|name| !name.chars().all(|c| c.is_ascii_digit()))
+            .collect();
+        let b: HashSet<_> = other
+            .fields
+            .iter()
+            .map(|(name, _)| name)
+            // ditto
+            .filter(|name| !name.chars().all(|c| c.is_ascii_digit()))
+            .collect();
 
         let a_intsec_b = a.intersection(&b).count();
         let a_diff_b = a.difference(&b).count();
