@@ -129,7 +129,8 @@ class App extends Component<Props, State> {
       const output = json2type(this.input, Target[this.state.targetSelected])
       output && this.setState({ output })
     } catch (e) {
-      this.setState({ output: (e as any).toString() })
+      this.setState({ output: "# ERROR:\n" + (e as any).toString() })
+      console.error(e)
     }
   }
 
