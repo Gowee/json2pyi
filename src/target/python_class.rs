@@ -147,7 +147,7 @@ fn write_output(
                 }
             }
             Type::Array(inner) => {
-                imports_from_typing.insert("List");
+                imports_from_typing.insert("list");
                 if schema.arena.get(inner).unwrap().is_any() {
                     imports_from_typing.insert("Any");
                 }
@@ -272,7 +272,7 @@ impl<'i, 'c> Display for Contexted<&'i Type, Context<'c>> {
             }
             Type::Array(r#type) => {
                 // dbg!(r#type);
-                write!(f, "List[{}]", self.wrap(schema.arena.get(*r#type).unwrap()))
+                write!(f, "list[{}]", self.wrap(schema.arena.get(*r#type).unwrap()))
             }
             Type::Int => write!(f, "int"),
             Type::Float => write!(f, "float"),

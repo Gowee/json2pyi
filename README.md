@@ -83,23 +83,23 @@ class Status:
 @dataclass
 class RootObject:
     page = Page
-    components = List[Components]
-    incidents = List[Any]
-    scheduled_maintenances = List[Any]
+    components = list[Components]
+    incidents = list[Any]
+    scheduled_maintenances = list[Any]
     status = Status
 ```
 
 Or:
 
 ```python
-from typing import TypedDict, Optional, List
+from typing import TypedDict, Optional
 
 from datetime import datetime
 
 
 IncidentUpdate = TypedDict("IncidentUpdate", {"body": str, "created_at": datetime, "display_at": datetime, "id": str, "incident_id": str, "status": str, "updated_at": datetime})
 
-IncidentOrScheduledMaintenance = TypedDict("IncidentOrScheduledMaintenance", {"created_at": datetime, "id": str, "impact": str, "incident_updates": List[IncidentUpdate], "monitoring_at": None, "name": str, "page_id": str, "resolved_at": None, "shortlink": str, "status": str, "updated_at": datetime, "scheduled_for": Optional[datetime], "scheduled_until": Optional[datetime]})
+IncidentOrScheduledMaintenance = TypedDict("IncidentOrScheduledMaintenance", {"created_at": datetime, "id": str, "impact": str, "incident_updates": list[IncidentUpdate], "monitoring_at": None, "name": str, "page_id": str, "resolved_at": None, "shortlink": str, "status": str, "updated_at": datetime, "scheduled_for": Optional[datetime], "scheduled_until": Optional[datetime]})
 
 Component = TypedDict("Component", {"created_at": datetime, "description": None, "id": str, "name": str, "page_id": str, "position": int, "status": str, "updated_at": datetime})
 
@@ -107,7 +107,7 @@ Status = TypedDict("Status", {"description": str, "indicator": str})
 
 Page = TypedDict("Page", {"id": str, "name": str, "url": str, "updated_at": datetime})
 
-RootObject = TypedDict("UnnammedType3C2BC8", {"page": Page, "status": Status, "components": List[Component], "incidents": List[IncidentOrScheduledMaintenance], "scheduled_maintenances": List[IncidentOrScheduledMaintenance]})
+RootObject = TypedDict("UnnammedType3C2BC8", {"page": Page, "status": Status, "components": list[Component], "incidents": list[IncidentOrScheduledMaintenance], "scheduled_maintenances": list[IncidentOrScheduledMaintenance]})
 ```
 
 ## TODO

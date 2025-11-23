@@ -140,7 +140,6 @@ fn write_output(
                 }
             }
             Type::Array(inner) => {
-                imports_from_typing.insert("List");
                 if schema.arena.get(inner).unwrap().is_any() {
                     imports_from_typing.insert("Any");
                 }
@@ -261,7 +260,7 @@ impl<'c> Display for Contexted<ArenaIndex, Context<'c>> {
                 Ok(())
             }
             Type::Array(inner) => {
-                write!(f, "List[{}]", self.wrap(inner))
+                write!(f, "list[{}]", self.wrap(inner))
             }
             Type::Int => write!(f, "int"),
             Type::Float => write!(f, "float"),
