@@ -147,7 +147,6 @@ fn write_output(
                 }
             }
             Type::Array(inner) => {
-                imports_from_typing.insert("list");
                 if schema.arena.get(inner).unwrap().is_any() {
                     imports_from_typing.insert("Any");
                 }
